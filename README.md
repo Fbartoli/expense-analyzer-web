@@ -28,6 +28,63 @@
 
 ---
 
+## 🚀 Live Demo
+
+**[Try it now](https://your-demo-link-here.vercel.app)** - Upload a CSV and start analyzing your expenses in seconds. No signup required.
+
+> **Note:** All data stays in your browser. We can't see your transactions even if we wanted to.
+
+---
+
+## 📸 Screenshots
+
+<p align="center">
+  <img src="./docs/screenshots/dashboard.png" alt="Dashboard" width="800" />
+  <br />
+  <em>Main dashboard with categorized expenses and budget overview</em>
+</p>
+
+<p align="center">
+  <img src="./docs/screenshots/trends.png" alt="Monthly Trends" width="800" />
+  <br />
+  <em>Interactive monthly spending trends</em>
+</p>
+
+<p align="center">
+  <img src="./docs/screenshots/backup.png" alt="Encrypted Backup" width="800" />
+  <br />
+  <em>Encrypted backup with password protection</em>
+</p>
+
+---
+
+## Why Use This?
+
+**For Privacy Advocates:**
+- Your financial data never leaves your device
+- No tracking, no analytics, no telemetry
+- No account creation or personal information required
+- Open source - verify the code yourself
+
+**For Budget Conscious Users:**
+- Free and open source forever
+- No subscription fees or premium tiers
+- All features available to everyone
+
+**For Swiss Bank Users:**
+- Native support for UBS CSV format
+- Handles Swiss date format (DD.MM.YYYY)
+- Supports Swiss number format (1'234.56)
+- Easy to extend for other banks
+
+**For Tech-Savvy Users:**
+- Works offline after first load
+- Encrypted backups you control
+- Export your data anytime
+- Modern tech stack (Next.js 16, React 19)
+
+---
+
 ## Features
 
 | Feature | Description |
