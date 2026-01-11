@@ -8,11 +8,11 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/YOUR_USERNAME/expense-analyzer/actions/workflows/ci.yml">
-    <img src="https://github.com/YOUR_USERNAME/expense-analyzer/actions/workflows/ci.yml/badge.svg" alt="CI Status" />
+  <a href="https://github.com/Fbartoli/expense-analyzer-web/actions/workflows/ci.yml">
+    <img src="https://github.com/Fbartoli/expense-analyzer-web/actions/workflows/ci.yml/badge.svg" alt="CI Status" />
   </a>
-  <a href="https://codecov.io/gh/YOUR_USERNAME/expense-analyzer">
-    <img src="https://codecov.io/gh/YOUR_USERNAME/expense-analyzer/branch/main/graph/badge.svg" alt="Coverage" />
+  <a href="https://codecov.io/gh/Fbartoli/expense-analyzer-web">
+    <img src="https://codecov.io/gh/Fbartoli/expense-analyzer-web/branch/main/graph/badge.svg" alt="Coverage" />
   </a>
   <img src="https://img.shields.io/badge/tests-115%20passing-brightgreen" alt="Tests" />
   <img src="https://img.shields.io/badge/TypeScript-5.7-blue?logo=typescript" alt="TypeScript" />
