@@ -8,3 +8,4 @@ dist
 screenshot
 .claude/
 coverage/
+tsconfig.tsbuildinfo
