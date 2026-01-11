@@ -1,9 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import {
-  categorizeTransaction,
-  analyzeExpenses,
-  calculateBudgetStatus,
-} from '@/lib/analyzer'
+import { categorizeTransaction, analyzeExpenses, calculateBudgetStatus } from '@/lib/analyzer'
 import { createMockTransaction, createMockBudget } from '../../fixtures/transactions'
 
 describe('analyzer', () => {
@@ -158,9 +154,7 @@ describe('analyzer', () => {
       const restaurantCategory = report.categorySummaries.find(
         (c) => c.category === 'Restaurants & Dining'
       )
-      const groceryCategory = report.categorySummaries.find(
-        (c) => c.category === 'Groceries'
-      )
+      const groceryCategory = report.categorySummaries.find((c) => c.category === 'Groceries')
 
       expect(restaurantCategory?.totalSpent).toBe(80)
       expect(restaurantCategory?.count).toBe(2)
@@ -234,9 +228,7 @@ describe('analyzer', () => {
     })
 
     it('should apply category overrides', () => {
-      const transactions = [
-        createMockTransaction({ sector: 'Restaurants', debit: 100 }),
-      ]
+      const transactions = [createMockTransaction({ sector: 'Restaurants', debit: 100 })]
       const overrides = new Map<number, string>()
       overrides.set(0, 'Entertainment')
 

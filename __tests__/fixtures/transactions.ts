@@ -1,8 +1,6 @@
 import type { Transaction, Budget, ExpenseReport } from '@/lib/types'
 
-export function createMockTransaction(
-  overrides: Partial<Transaction> = {}
-): Transaction {
+export function createMockTransaction(overrides: Partial<Transaction> = {}): Transaction {
   return {
     accountNumber: '123456789',
     cardNumber: '****1234',
@@ -21,9 +19,7 @@ export function createMockTransaction(
   }
 }
 
-export function createMockBudget(
-  overrides: Partial<Budget> = {}
-): Budget {
+export function createMockBudget(overrides: Partial<Budget> = {}): Budget {
   return {
     id: 1,
     category: 'Restaurants & Dining',
@@ -33,9 +29,7 @@ export function createMockBudget(
   }
 }
 
-export function createMockReport(
-  overrides: Partial<ExpenseReport> = {}
-): ExpenseReport {
+export function createMockReport(overrides: Partial<ExpenseReport> = {}): ExpenseReport {
   return {
     totalSpent: 200,
     totalIncome: 5000,

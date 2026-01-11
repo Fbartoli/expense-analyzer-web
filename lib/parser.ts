@@ -7,14 +7,14 @@ interface CSVRow {
   'Account/Cardholder': string
   'Purchase date': string
   'Booking text': string
-  'Sector': string
-  'Amount': string
+  Sector: string
+  Amount: string
   'Original currency': string
-  'Rate': string
-  'Currency': string
-  'Debit': string
-  'Credit': string
-  'Booked': string
+  Rate: string
+  Currency: string
+  Debit: string
+  Credit: string
+  Booked: string
 }
 
 function parseDate(dateStr: string): Date {
@@ -108,11 +108,13 @@ export function parseCSV(file: File): Promise<Transaction[]> {
                 const bookingText = (row['Booking text'] || '').toLowerCase()
                 const accountNumber = (row['Account number'] || '').toLowerCase()
 
-                if (bookingText.includes('total') ||
-                    bookingText.includes('sum') ||
-                    bookingText.includes('subtotal') ||
-                    bookingText.includes('grand total') ||
-                    accountNumber.includes('total')) {
+                if (
+                  bookingText.includes('total') ||
+                  bookingText.includes('sum') ||
+                  bookingText.includes('subtotal') ||
+                  bookingText.includes('grand total') ||
+                  accountNumber.includes('total')
+                ) {
                   return false
                 }
 
@@ -133,11 +135,13 @@ export function parseCSV(file: File): Promise<Transaction[]> {
                 if (debit === null && credit === null && amount > 0) {
                   const bookingText = (row['Booking text'] || '').toUpperCase()
                   // Check if it's a credit (incoming transfer)
-                  if (bookingText.includes('TRANSFER FROM') ||
-                      bookingText.includes('INCOMING') ||
-                      bookingText.includes('DEPOSIT') ||
-                      bookingText.includes('SALARY') ||
-                      bookingText.includes('REFUND')) {
+                  if (
+                    bookingText.includes('TRANSFER FROM') ||
+                    bookingText.includes('INCOMING') ||
+                    bookingText.includes('DEPOSIT') ||
+                    bookingText.includes('SALARY') ||
+                    bookingText.includes('REFUND')
+                  ) {
                     credit = amount
                   } else {
                     // Default to debit (expense)

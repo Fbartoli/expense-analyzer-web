@@ -5,9 +5,10 @@ import type { Transaction } from './types'
  * Uses purchaseDate, bookingText, and debit/credit amounts.
  */
 export function getTransactionHash(t: Transaction): string {
-  const dateStr = t.purchaseDate instanceof Date
-    ? t.purchaseDate.toISOString().split('T')[0]
-    : String(t.purchaseDate)
+  const dateStr =
+    t.purchaseDate instanceof Date
+      ? t.purchaseDate.toISOString().split('T')[0]
+      : String(t.purchaseDate)
 
   // Normalize booking text: lowercase, remove extra spaces
   const normalizedText = t.bookingText.toLowerCase().trim().replace(/\s+/g, ' ')
@@ -34,13 +35,10 @@ export interface MergeResult {
 /**
  * Merge new transactions into existing ones, detecting duplicates.
  */
-export function mergeTransactions(
-  existing: Transaction[],
-  incoming: Transaction[]
-): MergeResult {
+export function mergeTransactions(existing: Transaction[], incoming: Transaction[]): MergeResult {
   // Create a set of hashes from existing transactions
   const existingHashes = new Set<string>()
-  existing.forEach(t => {
+  existing.forEach((t) => {
     existingHashes.add(getTransactionHash(t))
   })
 
@@ -48,7 +46,7 @@ export function mergeTransactions(
   const duplicates: Transaction[] = []
 
   // Check each incoming transaction
-  incoming.forEach(t => {
+  incoming.forEach((t) => {
     const hash = getTransactionHash(t)
     if (existingHashes.has(hash)) {
       duplicates.push(t)
@@ -74,7 +72,7 @@ export function mergeTransactions(
       newCount: incoming.length,
       mergedCount: merged.length,
       duplicatesFound: duplicates.length,
-    }
+    },
   }
 }
 
@@ -85,7 +83,7 @@ export function mergeTransactions(
 export function findInternalDuplicates(transactions: Transaction[]): Transaction[][] {
   const hashMap = new Map<string, Transaction[]>()
 
-  transactions.forEach(t => {
+  transactions.forEach((t) => {
     const hash = getTransactionHash(t)
     const existing = hashMap.get(hash) || []
     existing.push(t)
@@ -93,5 +91,5 @@ export function findInternalDuplicates(transactions: Transaction[]): Transaction
   })
 
   // Return only groups with more than one transaction
-  return Array.from(hashMap.values()).filter(group => group.length > 1)
+  return Array.from(hashMap.values()).filter((group) => group.length > 1)
 }

@@ -28,16 +28,16 @@ export class ExpenseDatabase extends Dexie {
   constructor() {
     super('ExpenseAnalyzerDB')
     this.version(1).stores({
-      analyses: '++id, name, fileName, uploadDate'
+      analyses: '++id, name, fileName, uploadDate',
     })
     this.version(2).stores({
       analyses: '++id, name, fileName, uploadDate',
-      budgets: '++id, category, createdDate'
+      budgets: '++id, category, createdDate',
     })
     this.version(3).stores({
       analyses: '++id, name, fileName, uploadDate',
       budgets: '++id, category, createdDate',
-      chartPreferences: '++id'
+      chartPreferences: '++id',
     })
   }
 }
@@ -51,7 +51,7 @@ export async function saveAnalysis(
   customName?: string
 ): Promise<number> {
   const name = customName || `${fileName} - ${new Date().toLocaleDateString()}`
-  
+
   const id = await db.analyses.add({
     name,
     fileName,
@@ -59,7 +59,7 @@ export async function saveAnalysis(
     transactions,
     report,
   })
-  
+
   return id
 }
 
@@ -115,7 +115,7 @@ export async function saveBudget(category: string, amount: number): Promise<numb
   return await db.budgets.add({
     category,
     amount,
-    createdDate: new Date()
+    createdDate: new Date(),
   })
 }
 
@@ -200,7 +200,7 @@ function reviveDates<T>(obj: T): T {
   }
 
   if (Array.isArray(obj)) {
-    return obj.map(item => reviveDates(item)) as unknown as T
+    return obj.map((item) => reviveDates(item)) as unknown as T
   }
 
   if (typeof obj === 'object') {
@@ -232,8 +232,8 @@ export async function importAllData(backup: BackupData): Promise<{
   await db.chartPreferences.clear()
 
   // Import analyses (remove ids and convert date strings to Date objects)
-  const analysesToImport = backup.analyses.map(a => {
-    const { id, ...rest } = a
+  const analysesToImport = backup.analyses.map((a) => {
+    const { id: _id, ...rest } = a
     // Convert all date strings back to Date objects
     const revived = reviveDates(rest)
     return revived as SavedAnalysis
@@ -243,8 +243,8 @@ export async function importAllData(backup: BackupData): Promise<{
   }
 
   // Import budgets (convert dates)
-  const budgetsToImport = backup.budgets.map(b => {
-    const { id, ...rest } = b
+  const budgetsToImport = backup.budgets.map((b) => {
+    const { id: _bid, ...rest } = b
     const revived = reviveDates(rest)
     return revived as Budget
   })
@@ -254,7 +254,7 @@ export async function importAllData(backup: BackupData): Promise<{
 
   // Import chart preferences
   if (backup.chartPreferences) {
-    const { id, ...rest } = backup.chartPreferences
+    const { id: _bid, ...rest } = backup.chartPreferences
     await db.chartPreferences.add(rest as ChartPreferences)
   }
 

@@ -12,9 +12,20 @@ import {
   Cell,
 } from 'recharts'
 import type { Transaction } from '@/lib/types'
-import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfYear, endOfYear, isWithinInterval, parseISO, isSameDay, isSameMonth, isSameYear, getYear } from 'date-fns'
+import {
+  format,
+  startOfWeek,
+  endOfWeek,
+  startOfMonth,
+  endOfMonth,
+  isWithinInterval,
+  parseISO,
+  isSameDay,
+  isSameMonth,
+  getYear,
+} from 'date-fns'
 import { categorizeTransaction } from '@/lib/analyzer'
-import { getChartPreferences, saveChartPreferences, type ChartPreferences } from '@/lib/db'
+import { getChartPreferences, saveChartPreferences } from '@/lib/db'
 import { Filter, X, ChevronLeft, ZoomIn } from 'lucide-react'
 
 interface MonthlyStackedChartProps {
@@ -32,21 +43,21 @@ interface ZoomState {
 
 const CATEGORY_COLORS: Record<string, string> = {
   'Restaurants & Dining': '#ef4444',
-  'Groceries': '#f97316',
-  'Transportation': '#eab308',
+  Groceries: '#f97316',
+  Transportation: '#eab308',
   'Travel & Accommodation': '#22c55e',
-  'Shopping': '#14b8a6',
+  Shopping: '#14b8a6',
   'Health & Beauty': '#3b82f6',
   'Digital Services': '#8b5cf6',
   'Insurance & Financial': '#ec4899',
-  'Entertainment': '#6366f1',
-  'Fuel': '#84cc16',
+  Entertainment: '#6366f1',
+  Fuel: '#84cc16',
   'Fitness & Sports': '#06b6d4',
   'Utilities & Telecom': '#f43f5e',
   'Professional Services': '#a855f7',
   'Government & Taxes': '#10b981',
   'Crypto & Investments': '#f59e0b',
-  'Other': '#9ca3af',
+  Other: '#9ca3af',
 }
 
 interface PeriodData {
@@ -101,41 +112,53 @@ export function MonthlyTrends({ transactions }: MonthlyStackedChartProps) {
   }, [])
 
   // Save preferences when state changes
-  const savePreferences = useCallback(async (
-    newZoomState: ZoomState,
-    newExcludedCategories: Set<string>,
-    newShowFilterPanel: boolean
-  ) => {
-    if (!preferencesLoaded) return
-    try {
-      await saveChartPreferences({
-        granularity: newZoomState.level,
-        selectedYear: newZoomState.selectedYear,
-        selectedMonth: newZoomState.selectedMonth,
-        selectedWeek: newZoomState.selectedWeek,
-        excludedCategories: Array.from(newExcludedCategories),
-        showFilterPanel: newShowFilterPanel,
-      })
-    } catch (err) {
-      console.error('Failed to save chart preferences:', err)
-    }
-  }, [preferencesLoaded])
+  const savePreferences = useCallback(
+    async (
+      newZoomState: ZoomState,
+      newExcludedCategories: Set<string>,
+      newShowFilterPanel: boolean
+    ) => {
+      if (!preferencesLoaded) return
+      try {
+        await saveChartPreferences({
+          granularity: newZoomState.level,
+          selectedYear: newZoomState.selectedYear,
+          selectedMonth: newZoomState.selectedMonth,
+          selectedWeek: newZoomState.selectedWeek,
+          excludedCategories: Array.from(newExcludedCategories),
+          showFilterPanel: newShowFilterPanel,
+        })
+      } catch (err) {
+        console.error('Failed to save chart preferences:', err)
+      }
+    },
+    [preferencesLoaded]
+  )
 
   // Wrapper functions to update state and save
-  const updateZoomState = useCallback((newState: ZoomState) => {
-    setZoomState(newState)
-    savePreferences(newState, excludedCategories, showFilterPanel)
-  }, [excludedCategories, showFilterPanel, savePreferences])
+  const updateZoomState = useCallback(
+    (newState: ZoomState) => {
+      setZoomState(newState)
+      savePreferences(newState, excludedCategories, showFilterPanel)
+    },
+    [excludedCategories, showFilterPanel, savePreferences]
+  )
 
-  const updateExcludedCategories = useCallback((newCategories: Set<string>) => {
-    setExcludedCategories(newCategories)
-    savePreferences(zoomState, newCategories, showFilterPanel)
-  }, [zoomState, showFilterPanel, savePreferences])
+  const updateExcludedCategories = useCallback(
+    (newCategories: Set<string>) => {
+      setExcludedCategories(newCategories)
+      savePreferences(zoomState, newCategories, showFilterPanel)
+    },
+    [zoomState, showFilterPanel, savePreferences]
+  )
 
-  const updateShowFilterPanel = useCallback((show: boolean) => {
-    setShowFilterPanel(show)
-    savePreferences(zoomState, excludedCategories, show)
-  }, [zoomState, excludedCategories, savePreferences])
+  const updateShowFilterPanel = useCallback(
+    (show: boolean) => {
+      setShowFilterPanel(show)
+      savePreferences(zoomState, excludedCategories, show)
+    },
+    [zoomState, excludedCategories, savePreferences]
+  )
 
   // Get all unique categories from transactions
   const allCategories = useMemo(() => {
@@ -187,7 +210,9 @@ export function MonthlyTrends({ transactions }: MonthlyStackedChartProps) {
     } else if (zoomState.level === 'daily' && zoomState.selectedWeek) {
       const weekStart = parseISO(zoomState.selectedWeek)
       const weekEnd = endOfWeek(weekStart, { weekStartsOn: 1 })
-      const selectedMonthDate = zoomState.selectedMonth ? new Date(zoomState.selectedMonth + '-01') : null
+      const selectedMonthDate = zoomState.selectedMonth
+        ? new Date(zoomState.selectedMonth + '-01')
+        : null
       filteredTransactions = filteredTransactions.filter((t) => {
         if (!t.purchaseDate || isNaN(t.purchaseDate.getTime())) return false
         const inWeek = isWithinInterval(t.purchaseDate, { start: weekStart, end: weekEnd })
@@ -216,7 +241,10 @@ export function MonthlyTrends({ transactions }: MonthlyStackedChartProps) {
           periodKey = format(transaction.purchaseDate, 'yyyy-MM-dd')
           break
         case 'weekly':
-          periodKey = format(startOfWeek(transaction.purchaseDate, { weekStartsOn: 1 }), 'yyyy-MM-dd')
+          periodKey = format(
+            startOfWeek(transaction.purchaseDate, { weekStartsOn: 1 }),
+            'yyyy-MM-dd'
+          )
           break
         case 'monthly':
           periodKey = format(transaction.purchaseDate, 'yyyy-MM')
@@ -245,7 +273,7 @@ export function MonthlyTrends({ transactions }: MonthlyStackedChartProps) {
       switch (zoomState.level) {
         case 'daily':
           return format(new Date(key), 'EEE, MMM d')
-        case 'weekly':
+        case 'weekly': {
           const weekStart = new Date(key)
           const weekEnd = endOfWeek(weekStart, { weekStartsOn: 1 })
 
@@ -266,6 +294,7 @@ export function MonthlyTrends({ transactions }: MonthlyStackedChartProps) {
           }
 
           return `${format(weekStart, 'MMM d')} - ${format(weekEnd, 'd')}`
+        }
         case 'monthly':
           return format(new Date(key + '-01'), 'MMM yyyy')
         case 'yearly':
@@ -372,26 +401,34 @@ export function MonthlyTrends({ transactions }: MonthlyStackedChartProps) {
   }
 
   // Custom tooltip
-  const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?: Array<{ payload: ChartDataPoint }>; label?: string }) => {
+  const CustomTooltip = ({
+    active,
+    payload,
+    label,
+  }: {
+    active?: boolean
+    payload?: Array<{ payload: ChartDataPoint }>
+    label?: string
+  }) => {
     if (!active || !payload || !payload.length) return null
 
     const data = payload[0].payload
     const segments = data.segments as { category: string; value: number }[]
 
     return (
-      <div className="bg-white border-2 border-gray-200 rounded-xl p-4 shadow-lg max-h-80 overflow-auto">
-        <p className="font-bold text-gray-900 mb-2">{label}</p>
+      <div className="max-h-80 overflow-auto rounded-xl border-2 border-gray-200 bg-white p-4 shadow-lg">
+        <p className="mb-2 font-bold text-gray-900">{label}</p>
         {segments.map((segment, i) => (
-          <div key={i} className="flex items-center gap-2 text-sm py-1">
+          <div key={i} className="flex items-center gap-2 py-1 text-sm">
             <div
-              className="w-3 h-3 rounded-sm flex-shrink-0"
+              className="h-3 w-3 flex-shrink-0 rounded-sm"
               style={{ backgroundColor: CATEGORY_COLORS[segment.category] || '#9ca3af' }}
             />
             <span className="text-gray-600">{segment.category}:</span>
             <span className="font-semibold">{formatCurrency(segment.value)}</span>
           </div>
         ))}
-        <p className="text-xs text-purple-600 mt-2 pt-2 border-t border-gray-100">
+        <p className="mt-2 border-t border-gray-100 pt-2 text-xs text-purple-600">
           {zoomState.level === 'daily' ? 'Click to see transactions' : 'Click to zoom in'}
         </p>
       </div>
@@ -424,14 +461,25 @@ export function MonthlyTrends({ transactions }: MonthlyStackedChartProps) {
     if (zoomState.selectedYear) {
       parts.push({
         label: zoomState.selectedYear,
-        onClick: zoomState.level !== 'monthly' ? () => updateZoomState({ level: 'monthly', selectedYear: zoomState.selectedYear }) : undefined,
+        onClick:
+          zoomState.level !== 'monthly'
+            ? () => updateZoomState({ level: 'monthly', selectedYear: zoomState.selectedYear })
+            : undefined,
       })
     }
 
     if (zoomState.selectedMonth) {
       parts.push({
         label: format(new Date(zoomState.selectedMonth + '-01'), 'MMMM'),
-        onClick: zoomState.level === 'daily' ? () => updateZoomState({ level: 'weekly', selectedYear: zoomState.selectedYear, selectedMonth: zoomState.selectedMonth }) : undefined,
+        onClick:
+          zoomState.level === 'daily'
+            ? () =>
+                updateZoomState({
+                  level: 'weekly',
+                  selectedYear: zoomState.selectedYear,
+                  selectedMonth: zoomState.selectedMonth,
+                })
+            : undefined,
       })
     }
 
@@ -447,10 +495,10 @@ export function MonthlyTrends({ transactions }: MonthlyStackedChartProps) {
   }
 
   return (
-    <div className="bg-white rounded-2xl shadow-xl p-8 border-2 border-gray-50">
-      <div className="flex flex-wrap items-start justify-between gap-4 mb-6">
+    <div className="rounded-2xl border-2 border-gray-50 bg-white p-8 shadow-xl">
+      <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h2 className="text-3xl font-bold text-gray-900 mb-2">{getTitle()}</h2>
+          <h2 className="mb-2 text-3xl font-bold text-gray-900">{getTitle()}</h2>
 
           {/* Breadcrumb Navigation */}
           {zoomState.level !== 'yearly' && (
@@ -474,8 +522,8 @@ export function MonthlyTrends({ transactions }: MonthlyStackedChartProps) {
           )}
 
           {zoomState.level === 'yearly' && (
-            <p className="text-gray-600 flex items-center gap-2">
-              <ZoomIn className="w-4 h-4" />
+            <p className="flex items-center gap-2 text-gray-600">
+              <ZoomIn className="h-4 w-4" />
               Click any bar to zoom in
             </p>
           )}
@@ -486,9 +534,9 @@ export function MonthlyTrends({ transactions }: MonthlyStackedChartProps) {
           {zoomState.level !== 'yearly' && (
             <button
               onClick={handleZoomOut}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold bg-purple-100 text-purple-700 hover:bg-purple-200 transition-all"
+              className="flex items-center gap-2 rounded-xl bg-purple-100 px-4 py-2 text-sm font-semibold text-purple-700 transition-all hover:bg-purple-200"
             >
-              <ChevronLeft className="w-4 h-4" />
+              <ChevronLeft className="h-4 w-4" />
               Back
             </button>
           )}
@@ -496,16 +544,16 @@ export function MonthlyTrends({ transactions }: MonthlyStackedChartProps) {
           {/* Filter Button */}
           <button
             onClick={() => updateShowFilterPanel(!showFilterPanel)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
+            className={`flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition-all ${
               excludedCategories.size > 0
                 ? 'bg-purple-100 text-purple-700'
                 : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
             }`}
           >
-            <Filter className="w-4 h-4" />
+            <Filter className="h-4 w-4" />
             Filter
             {excludedCategories.size > 0 && (
-              <span className="bg-purple-600 text-white text-xs px-2 py-0.5 rounded-full">
+              <span className="rounded-full bg-purple-600 px-2 py-0.5 text-xs text-white">
                 {excludedCategories.size}
               </span>
             )}
@@ -515,13 +563,13 @@ export function MonthlyTrends({ transactions }: MonthlyStackedChartProps) {
 
       {/* Filter Panel */}
       {showFilterPanel && (
-        <div className="mb-6 p-4 bg-gray-50 rounded-xl border border-gray-200">
-          <div className="flex items-center justify-between mb-3">
+        <div className="mb-6 rounded-xl border border-gray-200 bg-gray-50 p-4">
+          <div className="mb-3 flex items-center justify-between">
             <span className="text-sm font-semibold text-gray-700">Filter Categories</span>
             {excludedCategories.size > 0 && (
               <button
                 onClick={clearFilters}
-                className="text-sm text-purple-600 hover:text-purple-800 font-medium"
+                className="text-sm font-medium text-purple-600 hover:text-purple-800"
               >
                 Clear all filters
               </button>
@@ -534,18 +582,18 @@ export function MonthlyTrends({ transactions }: MonthlyStackedChartProps) {
                 <button
                   key={category}
                   onClick={() => toggleCategory(category)}
-                  className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                  className={`flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium transition-all ${
                     isExcluded
                       ? 'bg-gray-200 text-gray-400 line-through'
-                      : 'bg-white border border-gray-200 text-gray-700 hover:border-gray-300'
+                      : 'border border-gray-200 bg-white text-gray-700 hover:border-gray-300'
                   }`}
                 >
                   <div
-                    className={`w-3 h-3 rounded-sm ${isExcluded ? 'opacity-30' : ''}`}
+                    className={`h-3 w-3 rounded-sm ${isExcluded ? 'opacity-30' : ''}`}
                     style={{ backgroundColor: CATEGORY_COLORS[category] || '#9ca3af' }}
                   />
                   {category}
-                  {isExcluded && <X className="w-3 h-3" />}
+                  {isExcluded && <X className="h-3 w-3" />}
                 </button>
               )
             })}
@@ -555,16 +603,16 @@ export function MonthlyTrends({ transactions }: MonthlyStackedChartProps) {
 
       {/* Active Filters Display */}
       {excludedCategories.size > 0 && !showFilterPanel && (
-        <div className="mb-4 flex items-center gap-2 flex-wrap">
+        <div className="mb-4 flex flex-wrap items-center gap-2">
           <span className="text-sm text-gray-500">Excluded:</span>
           {Array.from(excludedCategories).map((category) => (
             <button
               key={category}
               onClick={() => toggleCategory(category)}
-              className="flex items-center gap-1 px-2 py-1 bg-gray-100 text-gray-600 rounded-lg text-xs font-medium hover:bg-gray-200"
+              className="flex items-center gap-1 rounded-lg bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600 hover:bg-gray-200"
             >
               {category}
-              <X className="w-3 h-3" />
+              <X className="h-3 w-3" />
             </button>
           ))}
         </div>
@@ -605,7 +653,13 @@ export function MonthlyTrends({ transactions }: MonthlyStackedChartProps) {
                 key={`slot${slotIndex}`}
                 dataKey={`slot${slotIndex}`}
                 stackId="spending"
-                radius={slotIndex === 0 ? [0, 0, 0, 0] : slotIndex === maxCategories - 1 ? [4, 4, 0, 0] : [0, 0, 0, 0]}
+                radius={
+                  slotIndex === 0
+                    ? [0, 0, 0, 0]
+                    : slotIndex === maxCategories - 1
+                      ? [4, 4, 0, 0]
+                      : [0, 0, 0, 0]
+                }
               >
                 {chartData.map((entry, entryIndex) => (
                   <Cell
@@ -620,13 +674,13 @@ export function MonthlyTrends({ transactions }: MonthlyStackedChartProps) {
       </div>
 
       {/* Legend */}
-      <div className="mt-6 flex flex-wrap gap-4 justify-center">
+      <div className="mt-6 flex flex-wrap justify-center gap-4">
         {Object.entries(CATEGORY_COLORS)
           .filter(([category]) => !excludedCategories.has(category))
           .slice(0, 12)
           .map(([category, color]) => (
             <div key={category} className="flex items-center gap-2 text-sm">
-              <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: color }} />
+              <div className="h-3 w-3 rounded-sm" style={{ backgroundColor: color }} />
               <span className="text-gray-600">{category}</span>
             </div>
           ))}
@@ -634,49 +688,54 @@ export function MonthlyTrends({ transactions }: MonthlyStackedChartProps) {
 
       {/* Day Transactions Modal */}
       {selectedDay && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setSelectedDay(null)}>
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          onClick={() => setSelectedDay(null)}
+        >
           <div
-            className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[80vh] overflow-hidden"
+            className="max-h-[80vh] w-full max-w-2xl overflow-hidden rounded-2xl bg-white shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="p-6 border-b border-gray-100">
+            <div className="border-b border-gray-100 p-6">
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="text-2xl font-bold text-gray-900">
                     {format(parseISO(selectedDay), 'EEEE, MMMM d, yyyy')}
                   </h3>
-                  <p className="text-gray-600 mt-1">
-                    {dayTransactions.length} transaction{dayTransactions.length !== 1 ? 's' : ''} • Total: {formatCurrency(dayTransactions.reduce((sum, t) => sum + (t.debit || 0), 0))}
+                  <p className="mt-1 text-gray-600">
+                    {dayTransactions.length} transaction{dayTransactions.length !== 1 ? 's' : ''} •
+                    Total:{' '}
+                    {formatCurrency(dayTransactions.reduce((sum, t) => sum + (t.debit || 0), 0))}
                   </p>
                 </div>
                 <button
                   onClick={() => setSelectedDay(null)}
-                  className="p-2 hover:bg-gray-100 rounded-xl transition-colors"
+                  className="rounded-xl p-2 transition-colors hover:bg-gray-100"
                 >
-                  <X className="w-6 h-6 text-gray-500" />
+                  <X className="h-6 w-6 text-gray-500" />
                 </button>
               </div>
             </div>
 
-            <div className="p-6 overflow-y-auto max-h-[60vh]">
+            <div className="max-h-[60vh] overflow-y-auto p-6">
               {dayTransactions.length === 0 ? (
-                <p className="text-gray-500 text-center py-8">No transactions for this day</p>
+                <p className="py-8 text-center text-gray-500">No transactions for this day</p>
               ) : (
                 <div className="space-y-3">
                   {dayTransactions.map((t, index) => (
                     <div
                       key={index}
-                      className="flex items-center gap-4 p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors"
+                      className="flex items-center gap-4 rounded-xl bg-gray-50 p-4 transition-colors hover:bg-gray-100"
                     >
                       <div
-                        className="w-3 h-3 rounded-sm flex-shrink-0"
+                        className="h-3 w-3 flex-shrink-0 rounded-sm"
                         style={{ backgroundColor: CATEGORY_COLORS[t.category] || '#9ca3af' }}
                       />
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-gray-900 truncate">{t.bookingText}</p>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate font-medium text-gray-900">{t.bookingText}</p>
                         <p className="text-sm text-gray-500">{t.category}</p>
                       </div>
-                      <p className="font-bold text-red-600 flex-shrink-0">
+                      <p className="flex-shrink-0 font-bold text-red-600">
                         {formatCurrency(t.debit || 0)}
                       </p>
                     </div>

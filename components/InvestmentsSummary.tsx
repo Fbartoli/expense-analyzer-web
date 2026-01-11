@@ -20,10 +20,10 @@ interface InvestmentsSummaryProps {
 }
 
 const PLATFORM_COLORS: Record<string, string> = {
-  'Coinbase': '#0052FF',
-  'Kraken': '#5741D9',
-  'Binance': '#F0B90B',
-  'Other': '#6B7280',
+  Coinbase: '#0052FF',
+  Kraken: '#5741D9',
+  Binance: '#F0B90B',
+  Other: '#6B7280',
 }
 
 const CHART_COLORS = ['#0052FF', '#5741D9', '#F0B90B', '#10B981', '#EF4444', '#8B5CF6']
@@ -98,30 +98,34 @@ export function InvestmentsSummary({ transactions }: InvestmentsSummaryProps) {
   }
 
   return (
-    <div className="bg-white rounded-2xl shadow-xl p-8 border-2 border-gray-50">
+    <div className="rounded-2xl border-2 border-gray-50 bg-white p-8 shadow-xl">
       <div className="mb-8">
-        <h2 className="text-3xl font-bold text-gray-900 mb-2">Investments</h2>
+        <h2 className="mb-2 text-3xl font-bold text-gray-900">Investments</h2>
         <p className="text-gray-600">Your crypto and investment activity</p>
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
-        <div className="bg-gradient-to-br from-amber-500 to-orange-600 rounded-2xl p-6 text-white shadow-lg">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="p-2 bg-white/20 rounded-xl">
-              <Wallet className="w-6 h-6" />
+      <div className="mb-8 grid grid-cols-1 gap-4 md:grid-cols-2">
+        <div className="rounded-2xl bg-gradient-to-br from-amber-500 to-orange-600 p-6 text-white shadow-lg">
+          <div className="mb-3 flex items-center gap-3">
+            <div className="rounded-xl bg-white/20 p-2">
+              <Wallet className="h-6 w-6" />
             </div>
-            <span className="text-amber-100 text-sm font-semibold uppercase tracking-wide">Total Invested</span>
+            <span className="text-sm font-semibold uppercase tracking-wide text-amber-100">
+              Total Invested
+            </span>
           </div>
           <p className="text-4xl font-bold">{formatCurrency(investmentData.totalInvested)}</p>
         </div>
 
-        <div className="bg-gradient-to-br from-purple-500 to-indigo-600 rounded-2xl p-6 text-white shadow-lg">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="p-2 bg-white/20 rounded-xl">
-              <TrendingUp className="w-6 h-6" />
+        <div className="rounded-2xl bg-gradient-to-br from-purple-500 to-indigo-600 p-6 text-white shadow-lg">
+          <div className="mb-3 flex items-center gap-3">
+            <div className="rounded-xl bg-white/20 p-2">
+              <TrendingUp className="h-6 w-6" />
             </div>
-            <span className="text-purple-100 text-sm font-semibold uppercase tracking-wide">Transactions</span>
+            <span className="text-sm font-semibold uppercase tracking-wide text-purple-100">
+              Transactions
+            </span>
           </div>
           <p className="text-4xl font-bold">{investmentData.transactionCount}</p>
         </div>
@@ -130,14 +134,14 @@ export function InvestmentsSummary({ transactions }: InvestmentsSummaryProps) {
       {/* Platform Breakdown */}
       {investmentData.platformBreakdown.length > 0 && (
         <div className="mb-8">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">By Platform</h3>
+          <h3 className="mb-4 text-lg font-semibold text-gray-900">By Platform</h3>
           <div className="space-y-3">
             {investmentData.platformBreakdown.map((item) => {
               const percentage = (item.amount / investmentData.totalInvested) * 100
               return (
                 <div key={item.platform} className="flex items-center gap-4">
                   <div className="w-24 font-medium text-gray-700">{item.platform}</div>
-                  <div className="flex-1 h-8 bg-gray-100 rounded-full overflow-hidden">
+                  <div className="h-8 flex-1 overflow-hidden rounded-full bg-gray-100">
                     <div
                       className="h-full rounded-full transition-all duration-500"
                       style={{
@@ -147,8 +151,10 @@ export function InvestmentsSummary({ transactions }: InvestmentsSummaryProps) {
                     />
                   </div>
                   <div className="w-32 text-right">
-                    <span className="font-semibold text-gray-900">{formatCurrency(item.amount)}</span>
-                    <span className="text-gray-500 text-sm ml-2">({percentage.toFixed(1)}%)</span>
+                    <span className="font-semibold text-gray-900">
+                      {formatCurrency(item.amount)}
+                    </span>
+                    <span className="ml-2 text-sm text-gray-500">({percentage.toFixed(1)}%)</span>
                   </div>
                 </div>
               )
@@ -160,10 +166,13 @@ export function InvestmentsSummary({ transactions }: InvestmentsSummaryProps) {
       {/* Monthly Chart */}
       {investmentData.monthlyInvestments.length > 0 && (
         <div>
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Monthly Investments</h3>
+          <h3 className="mb-4 text-lg font-semibold text-gray-900">Monthly Investments</h3>
           <div className="h-[300px]">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={investmentData.monthlyInvestments} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+              <BarChart
+                data={investmentData.monthlyInvestments}
+                margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+              >
                 <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
                 <XAxis
                   dataKey="month"

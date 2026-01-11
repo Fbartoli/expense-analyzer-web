@@ -19,7 +19,6 @@ import {
   exportAllData,
   importAllData,
   isValidBackupData,
-  type SavedAnalysis,
   type BackupData,
 } from '@/lib/db'
 import { createMockTransaction, createMockReport } from '../../fixtures/transactions'
@@ -65,11 +64,7 @@ describe('db', () => {
     })
 
     it('should generate default name when no custom name', async () => {
-      const id = await saveAnalysis(
-        'test.csv',
-        [createMockTransaction()],
-        createMockReport()
-      )
+      const id = await saveAnalysis('test.csv', [createMockTransaction()], createMockReport())
 
       const saved = await getAnalysis(id)
       expect(saved?.name).toContain('test.csv')

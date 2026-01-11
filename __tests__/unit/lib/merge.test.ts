@@ -1,9 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import {
-  getTransactionHash,
-  mergeTransactions,
-  findInternalDuplicates,
-} from '@/lib/merge'
+import { getTransactionHash, mergeTransactions, findInternalDuplicates } from '@/lib/merge'
 import { createMockTransaction } from '../../fixtures/transactions'
 
 describe('merge', () => {
@@ -86,12 +82,8 @@ describe('merge', () => {
 
   describe('mergeTransactions', () => {
     it('should merge non-duplicate transactions', () => {
-      const existing = [
-        createMockTransaction({ purchaseDate: new Date('2024-06-15'), debit: 50 }),
-      ]
-      const incoming = [
-        createMockTransaction({ purchaseDate: new Date('2024-06-16'), debit: 75 }),
-      ]
+      const existing = [createMockTransaction({ purchaseDate: new Date('2024-06-15'), debit: 50 })]
+      const incoming = [createMockTransaction({ purchaseDate: new Date('2024-06-16'), debit: 75 })]
 
       const result = mergeTransactions(existing, incoming)
 
@@ -124,9 +116,7 @@ describe('merge', () => {
     })
 
     it('should sort merged transactions by date', () => {
-      const existing = [
-        createMockTransaction({ purchaseDate: new Date('2024-06-20') }),
-      ]
+      const existing = [createMockTransaction({ purchaseDate: new Date('2024-06-20') })]
       const incoming = [
         createMockTransaction({
           purchaseDate: new Date('2024-06-10'),
@@ -180,9 +170,7 @@ describe('merge', () => {
 
     it('should handle empty existing array', () => {
       const existing: ReturnType<typeof createMockTransaction>[] = []
-      const incoming = [
-        createMockTransaction({ purchaseDate: new Date('2024-06-15') }),
-      ]
+      const incoming = [createMockTransaction({ purchaseDate: new Date('2024-06-15') })]
 
       const result = mergeTransactions(existing, incoming)
 

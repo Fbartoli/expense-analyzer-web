@@ -25,7 +25,7 @@ export interface CategorySummary {
 
 export interface MonthlyAnalysis {
   month: string
-  monthKey: string  // yyyy-MM format for sorting
+  monthKey: string // yyyy-MM format for sorting
   totalSpent: number
   totalIncome: number
   netFlow: number

@@ -21,7 +21,7 @@ export const CATEGORIES = [
   'Other',
 ] as const
 
-export type Category = typeof CATEGORIES[number]
+export type Category = (typeof CATEGORIES)[number]
 
 export function getAllCategories(): readonly string[] {
   return CATEGORIES

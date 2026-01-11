@@ -1,8 +1,4 @@
-export function createMockFile(
-  content: string,
-  name: string,
-  type: string
-): File {
+export function createMockFile(content: string, name: string, type: string): File {
   const blob = new Blob([content], { type })
   return new File([blob], name, { type })
 }

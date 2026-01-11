@@ -17,9 +17,9 @@ export function TopExpenses({ transactions }: TopExpensesProps) {
   }
 
   return (
-    <div className="bg-white rounded-2xl shadow-xl p-8 border-2 border-gray-50">
+    <div className="rounded-2xl border-2 border-gray-50 bg-white p-8 shadow-xl">
       <div className="mb-8">
-        <h2 className="text-3xl font-bold text-gray-900 mb-2">Top 10 Expenses</h2>
+        <h2 className="mb-2 text-3xl font-bold text-gray-900">Top 10 Expenses</h2>
         <p className="text-gray-600">Your highest transactions this period</p>
       </div>
 
@@ -27,16 +27,16 @@ export function TopExpenses({ transactions }: TopExpensesProps) {
         <table className="w-full">
           <thead>
             <tr className="border-b-2 border-gray-200">
-              <th className="text-left py-4 px-6 text-sm font-bold text-gray-700 uppercase tracking-wide">
+              <th className="px-6 py-4 text-left text-sm font-bold uppercase tracking-wide text-gray-700">
                 Date
               </th>
-              <th className="text-left py-4 px-6 text-sm font-bold text-gray-700 uppercase tracking-wide">
+              <th className="px-6 py-4 text-left text-sm font-bold uppercase tracking-wide text-gray-700">
                 Description
               </th>
-              <th className="text-left py-4 px-6 text-sm font-bold text-gray-700 uppercase tracking-wide">
+              <th className="px-6 py-4 text-left text-sm font-bold uppercase tracking-wide text-gray-700">
                 Category
               </th>
-              <th className="text-right py-4 px-6 text-sm font-bold text-gray-700 uppercase tracking-wide">
+              <th className="px-6 py-4 text-right text-sm font-bold uppercase tracking-wide text-gray-700">
                 Amount
               </th>
             </tr>
@@ -45,34 +45,32 @@ export function TopExpenses({ transactions }: TopExpensesProps) {
             {transactions.map((transaction, index) => (
               <tr
                 key={index}
-                className="border-b border-gray-100 hover:bg-gray-50 transition-colors group"
+                className="group border-b border-gray-100 transition-colors hover:bg-gray-50"
               >
-                <td className="py-4 px-6 text-sm text-gray-600 font-medium">
+                <td className="px-6 py-4 text-sm font-medium text-gray-600">
                   {transaction.purchaseDate && !isNaN(transaction.purchaseDate.getTime())
                     ? format(transaction.purchaseDate, 'MMM d, yyyy')
                     : 'Invalid date'}
                 </td>
-                <td className="py-4 px-6">
+                <td className="px-6 py-4">
                   <div>
-                    <p className="text-base font-semibold text-gray-900 group-hover:text-blue-600 transition-colors">
+                    <p className="text-base font-semibold text-gray-900 transition-colors group-hover:text-blue-600">
                       {transaction.bookingText}
                     </p>
-                    <p className="text-sm text-gray-500 mt-1">
-                      {transaction.accountHolder}
-                    </p>
+                    <p className="mt-1 text-sm text-gray-500">{transaction.accountHolder}</p>
                   </div>
                 </td>
-                <td className="py-4 px-6">
-                  <span className="inline-flex items-center px-3 py-1.5 rounded-xl text-sm font-semibold bg-blue-100 text-blue-700">
+                <td className="px-6 py-4">
+                  <span className="inline-flex items-center rounded-xl bg-blue-100 px-3 py-1.5 text-sm font-semibold text-blue-700">
                     {transaction.sector}
                   </span>
                 </td>
-                <td className="py-4 px-6 text-right">
+                <td className="px-6 py-4 text-right">
                   <div className="flex items-center justify-end gap-2">
                     <span className="text-lg font-bold text-red-600">
                       {formatCurrency(transaction.debit || 0)}
                     </span>
-                    <ArrowUpRight className="w-5 h-5 text-red-500" />
+                    <ArrowUpRight className="h-5 w-5 text-red-500" />
                   </div>
                 </td>
               </tr>

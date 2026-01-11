@@ -2,8 +2,24 @@
 
 import { useState, useEffect } from 'react'
 import { format } from 'date-fns'
-import { Database, Trash2, Download, Calendar, FileText, HardDrive, Pencil, Check, X } from 'lucide-react'
-import { getAllAnalyses, deleteAnalysis, updateAnalysisName, getStorageInfo, type SavedAnalysis } from '@/lib/db'
+import {
+  Database,
+  Trash2,
+  Download,
+  Calendar,
+  FileText,
+  HardDrive,
+  Pencil,
+  Check,
+  X,
+} from 'lucide-react'
+import {
+  getAllAnalyses,
+  deleteAnalysis,
+  updateAnalysisName,
+  getStorageInfo,
+  type SavedAnalysis,
+} from '@/lib/db'
 
 interface SavedAnalysesProps {
   onLoad: (analysis: SavedAnalysis) => void
@@ -48,7 +64,10 @@ export function SavedAnalyses({ onLoad, refreshTrigger }: SavedAnalysesProps) {
     setEditName('')
   }
 
-  async function handleSaveEdit(id: number, e?: React.MouseEvent | React.KeyboardEvent): Promise<void> {
+  async function handleSaveEdit(
+    id: number,
+    e?: React.MouseEvent | React.KeyboardEvent
+  ): Promise<void> {
     e?.stopPropagation()
     if (editName.trim()) {
       await updateAnalysisName(id, editName.trim())
@@ -65,8 +84,8 @@ export function SavedAnalyses({ onLoad, refreshTrigger }: SavedAnalysesProps) {
 
   function formatDateRange(analysis: SavedAnalysis): string {
     const dates = analysis.transactions
-      .map(t => new Date(t.purchaseDate))
-      .filter(d => !isNaN(d.getTime()))
+      .map((t) => new Date(t.purchaseDate))
+      .filter((d) => !isNaN(d.getTime()))
       .sort((a, b) => a.getTime() - b.getTime())
     if (dates.length === 0) return 'No dates'
     const from = format(dates[0], 'MMM d, yyyy')
@@ -82,46 +101,49 @@ export function SavedAnalyses({ onLoad, refreshTrigger }: SavedAnalysesProps) {
     <>
       <button
         onClick={() => setIsOpen(true)}
-        className="flex items-center gap-2 px-6 py-3 bg-white border-2 border-gray-200 rounded-xl hover:bg-gray-50 hover:border-blue-400 transition-all font-semibold text-gray-700"
+        className="flex items-center gap-2 rounded-xl border-2 border-gray-200 bg-white px-6 py-3 font-semibold text-gray-700 transition-all hover:border-blue-400 hover:bg-gray-50"
       >
-        <Database className="w-5 h-5 text-blue-600" />
+        <Database className="h-5 w-5 text-blue-600" />
         Saved ({analyses.length})
       </button>
 
       {isOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-2xl max-w-3xl w-full max-h-[80vh] overflow-hidden">
-            <div className="bg-gradient-to-r from-blue-500 to-purple-600 text-white p-6">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
+          <div className="max-h-[80vh] w-full max-w-3xl overflow-hidden rounded-xl bg-white shadow-2xl">
+            <div className="bg-gradient-to-r from-blue-500 to-purple-600 p-6 text-white">
               <div className="flex items-center justify-between">
                 <div>
                   <h2 className="text-2xl font-bold">Saved Analyses</h2>
-                  <p className="text-blue-100 mt-1">
+                  <p className="mt-1 text-blue-100">
                     {storageInfo.count} saved • Using {storageInfo.estimatedSize}
                   </p>
                 </div>
                 <button
                   onClick={() => setIsOpen(false)}
-                  className="p-2 hover:bg-white/20 rounded-lg transition-colors"
+                  className="rounded-lg p-2 transition-colors hover:bg-white/20"
                 >
                   ✕
                 </button>
               </div>
             </div>
 
-            <div className="overflow-y-auto max-h-[calc(80vh-140px)] p-6">
+            <div className="max-h-[calc(80vh-140px)] overflow-y-auto p-6">
               <div className="space-y-3">
                 {analyses.map((analysis) => (
                   <div
                     key={analysis.id}
                     onClick={() => handleLoad(analysis)}
-                    className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-all cursor-pointer group hover:border-blue-300"
+                    className="group cursor-pointer rounded-lg border border-gray-200 p-4 transition-all hover:border-blue-300 hover:shadow-md"
                   >
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
-                        <div className="flex items-center gap-3 mb-2">
-                          <FileText className="w-5 h-5 text-blue-500" />
+                        <div className="mb-2 flex items-center gap-3">
+                          <FileText className="h-5 w-5 text-blue-500" />
                           {editingId === analysis.id ? (
-                            <div className="flex items-center gap-2 flex-1" onClick={(e) => e.stopPropagation()}>
+                            <div
+                              className="flex flex-1 items-center gap-2"
+                              onClick={(e) => e.stopPropagation()}
+                            >
                               <input
                                 type="text"
                                 value={editName}
@@ -130,20 +152,20 @@ export function SavedAnalyses({ onLoad, refreshTrigger }: SavedAnalysesProps) {
                                   if (e.key === 'Enter') handleSaveEdit(analysis.id!, e)
                                   if (e.key === 'Escape') handleCancelEdit(e)
                                 }}
-                                className="flex-1 px-2 py-1 border-2 border-blue-400 rounded-lg focus:outline-none focus:border-blue-600"
+                                className="flex-1 rounded-lg border-2 border-blue-400 px-2 py-1 focus:border-blue-600 focus:outline-none"
                                 autoFocus
                               />
                               <button
                                 onClick={(e) => handleSaveEdit(analysis.id!, e)}
-                                className="p-1.5 bg-green-100 hover:bg-green-200 rounded-lg transition-colors"
+                                className="rounded-lg bg-green-100 p-1.5 transition-colors hover:bg-green-200"
                               >
-                                <Check className="w-4 h-4 text-green-600" />
+                                <Check className="h-4 w-4 text-green-600" />
                               </button>
                               <button
                                 onClick={handleCancelEdit}
-                                className="p-1.5 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                                className="rounded-lg bg-gray-100 p-1.5 transition-colors hover:bg-gray-200"
                               >
-                                <X className="w-4 h-4 text-gray-600" />
+                                <X className="h-4 w-4 text-gray-600" />
                               </button>
                             </div>
                           ) : (
@@ -153,21 +175,21 @@ export function SavedAnalyses({ onLoad, refreshTrigger }: SavedAnalysesProps) {
                           )}
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4 text-sm text-gray-600 ml-8">
+                        <div className="ml-8 grid grid-cols-2 gap-4 text-sm text-gray-600">
                           <div className="flex items-center gap-2">
-                            <Calendar className="w-4 h-4" />
+                            <Calendar className="h-4 w-4" />
                             <span>{formatDateRange(analysis)}</span>
                           </div>
                           <div className="flex items-center gap-2">
-                            <HardDrive className="w-4 h-4" />
+                            <HardDrive className="h-4 w-4" />
                             <span>{analysis.transactions.length} transactions</span>
                           </div>
                           <div className="flex items-center gap-2">
-                            <Download className="w-4 h-4" />
+                            <Download className="h-4 w-4" />
                             <span>{analysis.fileName}</span>
                           </div>
                           <div className="flex items-center gap-2">
-                            <span className="text-green-600 font-semibold">
+                            <span className="font-semibold text-green-600">
                               {new Intl.NumberFormat('en-CH', {
                                 style: 'currency',
                                 currency: 'CHF',
@@ -181,18 +203,18 @@ export function SavedAnalyses({ onLoad, refreshTrigger }: SavedAnalysesProps) {
                         {editingId !== analysis.id && (
                           <button
                             onClick={(e) => handleStartEdit(analysis, e)}
-                            className="p-2 hover:bg-blue-50 rounded-lg transition-colors"
+                            className="rounded-lg p-2 transition-colors hover:bg-blue-50"
                             title="Rename"
                           >
-                            <Pencil className="w-4 h-4 text-gray-400 hover:text-blue-600" />
+                            <Pencil className="h-4 w-4 text-gray-400 hover:text-blue-600" />
                           </button>
                         )}
                         <button
                           onClick={(e) => handleDelete(analysis.id!, e)}
-                          className="p-2 hover:bg-red-50 rounded-lg transition-colors"
+                          className="rounded-lg p-2 transition-colors hover:bg-red-50"
                           title="Delete"
                         >
-                          <Trash2 className="w-5 h-5 text-gray-400 hover:text-red-600" />
+                          <Trash2 className="h-5 w-5 text-gray-400 hover:text-red-600" />
                         </button>
                       </div>
                     </div>
@@ -201,13 +223,11 @@ export function SavedAnalyses({ onLoad, refreshTrigger }: SavedAnalysesProps) {
               </div>
             </div>
 
-            <div className="border-t p-4 bg-gray-50 flex justify-between items-center">
-              <p className="text-sm text-gray-600">
-                💡 Data is stored locally in your browser
-              </p>
+            <div className="flex items-center justify-between border-t bg-gray-50 p-4">
+              <p className="text-sm text-gray-600">💡 Data is stored locally in your browser</p>
               <button
                 onClick={() => setIsOpen(false)}
-                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+                className="rounded-lg bg-gray-200 px-4 py-2 text-gray-700 transition-colors hover:bg-gray-300"
               >
                 Close
               </button>

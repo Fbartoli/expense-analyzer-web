@@ -9,13 +9,10 @@ async function deriveKey(password: string, salt: Uint8Array): Promise<CryptoKey>
   const passwordBuffer = encoder.encode(password)
 
   // Import password as a key
-  const passwordKey = await crypto.subtle.importKey(
-    'raw',
-    passwordBuffer,
-    'PBKDF2',
-    false,
-    ['deriveBits', 'deriveKey']
-  )
+  const passwordKey = await crypto.subtle.importKey('raw', passwordBuffer, 'PBKDF2', false, [
+    'deriveBits',
+    'deriveKey',
+  ])
 
   // Derive AES-GCM key using PBKDF2
   return crypto.subtle.deriveKey(

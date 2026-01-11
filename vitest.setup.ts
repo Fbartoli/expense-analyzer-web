@@ -36,10 +36,13 @@ vi.stubGlobal('matchMedia', (query: string) => ({
 // Mock URL.createObjectURL and revokeObjectURL (for file downloads)
 // Preserve the URL constructor while mocking static methods
 const OriginalURL = globalThis.URL
-vi.stubGlobal('URL', class MockURL extends OriginalURL {
-  static createObjectURL = vi.fn(() => 'blob:mock-url')
-  static revokeObjectURL = vi.fn()
-})
+vi.stubGlobal(
+  'URL',
+  class MockURL extends OriginalURL {
+    static createObjectURL = vi.fn(() => 'blob:mock-url')
+    static revokeObjectURL = vi.fn()
+  }
+)
 
 // Note: IndexedDB cleanup is handled per-test-file when needed (e.g., db.test.ts)
 // to avoid race conditions with open database connections

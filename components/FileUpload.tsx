@@ -70,19 +70,19 @@ export function FileUpload({ onFileUpload, loading = false, isOpen, onClose }: F
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full relative p-8">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
+      <div className="relative w-full max-w-2xl rounded-2xl bg-white p-8 shadow-2xl">
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 p-2 hover:bg-gray-100 rounded-lg transition-colors z-10"
+          className="absolute right-4 top-4 z-10 rounded-lg p-2 transition-colors hover:bg-gray-100"
         >
-          <X className="w-6 h-6 text-gray-600" />
+          <X className="h-6 w-6 text-gray-600" />
         </button>
 
         <div
-          className={`relative border-3 border-dashed rounded-2xl p-16 transition-all ${
+          className={`border-3 relative rounded-2xl border-dashed p-16 transition-all ${
             dragActive
-              ? 'border-blue-500 bg-blue-50 scale-[1.02]'
+              ? 'scale-[1.02] border-blue-500 bg-blue-50'
               : 'border-gray-300 hover:border-blue-400 hover:bg-gray-50'
           }`}
           onDragEnter={handleDrag}
@@ -102,42 +102,40 @@ export function FileUpload({ onFileUpload, loading = false, isOpen, onClose }: F
           <div className="text-center">
             {loading ? (
               <>
-                <Loader2 className="w-20 h-20 mx-auto text-blue-600 animate-spin mb-6" />
-                <p className="text-xl font-bold text-gray-800 mb-2">Processing...</p>
+                <Loader2 className="mx-auto mb-6 h-20 w-20 animate-spin text-blue-600" />
+                <p className="mb-2 text-xl font-bold text-gray-800">Processing...</p>
                 <p className="text-base text-gray-600">Analyzing your expense data</p>
               </>
             ) : selectedFile ? (
               <>
-                <FileText className="w-20 h-20 mx-auto text-green-500 mb-6" />
-                <p className="text-xl font-bold text-gray-800 mb-2">{selectedFile.name}</p>
-                <p className="text-base text-gray-600 mb-6">
+                <FileText className="mx-auto mb-6 h-20 w-20 text-green-500" />
+                <p className="mb-2 text-xl font-bold text-gray-800">{selectedFile.name}</p>
+                <p className="mb-6 text-base text-gray-600">
                   {(selectedFile.size / 1024).toFixed(2)} KB
                 </p>
                 <button
                   onClick={onButtonClick}
-                  className="px-8 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+                  className="transform rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 px-8 py-3 font-semibold text-white shadow-lg transition-all hover:-translate-y-0.5 hover:from-blue-700 hover:to-purple-700 hover:shadow-xl"
                 >
                   Upload Different File
                 </button>
               </>
             ) : (
               <>
-                <Upload className="w-20 h-20 mx-auto text-gray-400 mb-6" />
-                <p className="text-2xl font-bold text-gray-800 mb-3">
-                  Upload your expense CSV
-                </p>
-                <p className="text-base text-gray-600 mb-6">
+                <Upload className="mx-auto mb-6 h-20 w-20 text-gray-400" />
+                <p className="mb-3 text-2xl font-bold text-gray-800">Upload your expense CSV</p>
+                <p className="mb-6 text-base text-gray-600">
                   Drag and drop your file here, or click to browse
                 </p>
                 {fileError && (
-                  <div className="mb-6 p-3 bg-red-50 border border-red-200 rounded-xl flex items-center gap-2 justify-center text-red-700">
-                    <AlertTriangle className="w-5 h-5 flex-shrink-0" />
+                  <div className="mb-6 flex items-center justify-center gap-2 rounded-xl border border-red-200 bg-red-50 p-3 text-red-700">
+                    <AlertTriangle className="h-5 w-5 flex-shrink-0" />
                     <span>{fileError}</span>
                   </div>
                 )}
                 <button
                   onClick={onButtonClick}
-                  className="px-8 py-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all font-bold text-lg shadow-xl hover:shadow-2xl transform hover:-translate-y-1"
+                  className="transform rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 px-8 py-4 text-lg font-bold text-white shadow-xl transition-all hover:-translate-y-1 hover:from-blue-700 hover:to-purple-700 hover:shadow-2xl"
                 >
                   Select File
                 </button>
@@ -146,7 +144,7 @@ export function FileUpload({ onFileUpload, loading = false, isOpen, onClose }: F
           </div>
         </div>
 
-        <div className="mt-6 text-sm text-gray-500 text-center">
+        <div className="mt-6 text-center text-sm text-gray-500">
           <p>
             Supported format: CSV files with columns for account, date, description, amount, etc.
           </p>

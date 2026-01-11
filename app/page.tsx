@@ -15,7 +15,7 @@ import { BudgetOverview } from '@/components/BudgetOverview'
 import { PeriodFilter, type PeriodPreset } from '@/components/PeriodFilter'
 import { BackupRestore } from '@/components/BackupRestore'
 import { parseCSV } from '@/lib/parser'
-import { analyzeExpenses, categorizeTransaction, calculateBudgetStatus } from '@/lib/analyzer'
+import { analyzeExpenses, calculateBudgetStatus } from '@/lib/analyzer'
 import { saveAnalysis, getAllBudgets, type SavedAnalysis } from '@/lib/db'
 import type { Transaction, ExpenseReport, Budget, BudgetWithSpending } from '@/lib/types'
 import { TrendingUp, Save, Check, GitCompare, Shield, Loader2 } from 'lucide-react'
@@ -44,23 +44,26 @@ export default function Home() {
   const [savedAnalysesRefreshTrigger, setSavedAnalysesRefreshTrigger] = useState(0)
 
   // Handle period filter changes
-  const handlePeriodFilterChange = useCallback((
-    filtered: Transaction[],
-    period: PeriodPreset,
-    dateRange: { start: Date; end: Date } | null
-  ) => {
-    setFilteredTransactions(filtered)
-    setPeriodFilter(period)
-    setPeriodDateRange(dateRange)
+  const handlePeriodFilterChange = useCallback(
+    (
+      filtered: Transaction[],
+      period: PeriodPreset,
+      dateRange: { start: Date; end: Date } | null
+    ) => {
+      setFilteredTransactions(filtered)
+      setPeriodFilter(period)
+      setPeriodDateRange(dateRange)
 
-    // Recalculate report for filtered transactions
-    if (filtered.length > 0) {
-      const newReport = analyzeExpenses(filtered, categoryOverrides)
-      setFilteredReport(newReport)
-    } else {
-      setFilteredReport(null)
-    }
-  }, [categoryOverrides])
+      // Recalculate report for filtered transactions
+      if (filtered.length > 0) {
+        const newReport = analyzeExpenses(filtered, categoryOverrides)
+        setFilteredReport(newReport)
+      } else {
+        setFilteredReport(null)
+      }
+    },
+    [categoryOverrides]
+  )
 
   // Load budgets on mount
   useEffect(() => {
@@ -126,7 +129,7 @@ export default function Home() {
       await saveAnalysis(fileName, transactions, report)
       setSaved(true)
       setTimeout(() => setSaved(false), 3000)
-    } catch (err) {
+    } catch (_err) {
       setError('Failed to save analysis')
     }
   }
@@ -140,7 +143,7 @@ export default function Home() {
 
   function handleRestoreComplete(): void {
     loadBudgets()
-    setSavedAnalysesRefreshTrigger(prev => prev + 1)
+    setSavedAnalysesRefreshTrigger((prev) => prev + 1)
     setTransactions([])
     setReport(null)
     setFileName('')
@@ -159,23 +162,25 @@ export default function Home() {
   return (
     <div className="min-h-screen">
       <header className="bg-gradient-to-r from-blue-600 to-purple-600 shadow-xl">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
           <div className="flex items-center gap-4">
-            <div className="p-3 bg-white/20 backdrop-blur-sm rounded-2xl shadow-lg">
-              <TrendingUp className="w-10 h-10 text-white" />
+            <div className="rounded-2xl bg-white/20 p-3 shadow-lg backdrop-blur-sm">
+              <TrendingUp className="h-10 w-10 text-white" />
             </div>
             <div>
               <h1 className="text-4xl font-bold text-white">UBS CSV Analyzer</h1>
-              <p className="text-blue-100 mt-1 text-lg">Upload your UBS bank statement to unlock financial insights</p>
+              <p className="mt-1 text-lg text-blue-100">
+                Upload your UBS bank statement to unlock financial insights
+              </p>
             </div>
           </div>
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
         <div className="space-y-8">
           {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+            <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-red-700">
               <p className="font-semibold">Error:</p>
               <p>{error}</p>
             </div>
@@ -183,12 +188,12 @@ export default function Home() {
 
           {initialLoading && (
             <div className="flex items-center justify-center py-12">
-              <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
+              <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
             </div>
           )}
 
           {!initialLoading && report && (
-            <div className="space-y-6 animate-in fade-in duration-500">
+            <div className="animate-in fade-in space-y-6 duration-500">
               {/* Top row: Period Filter + Action buttons */}
               <div className="flex flex-wrap items-center justify-between gap-3">
                 {/* Period Filter */}
@@ -203,26 +208,29 @@ export default function Home() {
                     transactions={periodFilter === 'all' ? transactions : filteredTransactions}
                     onUpdateCategories={handleUpdateCategories}
                   />
-                  <SavedAnalyses onLoad={handleLoadSaved} refreshTrigger={savedAnalysesRefreshTrigger} />
+                  <SavedAnalyses
+                    onLoad={handleLoadSaved}
+                    refreshTrigger={savedAnalysesRefreshTrigger}
+                  />
                   <TransactionHistoryBuilder onHistoryBuilt={handleHistoryBuilt} />
                   <button
                     onClick={() => setComparisonOpen(true)}
-                    className="flex items-center gap-2 px-6 py-3 bg-white border-2 border-gray-200 rounded-xl hover:border-purple-300 hover:bg-purple-50 transition-all font-semibold text-gray-700"
+                    className="flex items-center gap-2 rounded-xl border-2 border-gray-200 bg-white px-6 py-3 font-semibold text-gray-700 transition-all hover:border-purple-300 hover:bg-purple-50"
                   >
-                    <GitCompare className="w-5 h-5" />
+                    <GitCompare className="h-5 w-5" />
                     Compare
                   </button>
                   <button
                     onClick={() => setBackupRestoreOpen(true)}
-                    className="flex items-center gap-2 px-6 py-3 bg-white border-2 border-gray-200 rounded-xl hover:border-slate-400 hover:bg-slate-50 transition-all font-semibold text-gray-700"
+                    className="flex items-center gap-2 rounded-xl border-2 border-gray-200 bg-white px-6 py-3 font-semibold text-gray-700 transition-all hover:border-slate-400 hover:bg-slate-50"
                   >
-                    <Shield className="w-5 h-5" />
+                    <Shield className="h-5 w-5" />
                     Backup
                   </button>
                   <button
                     onClick={handleSave}
                     disabled={saved}
-                    className={`flex items-center gap-2 px-6 py-3 rounded-xl font-semibold shadow-lg transition-all ${
+                    className={`flex items-center gap-2 rounded-xl px-6 py-3 font-semibold shadow-lg transition-all ${
                       saved
                         ? 'bg-green-500 text-white'
                         : 'bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:from-blue-700 hover:to-purple-700 hover:shadow-xl'
@@ -230,12 +238,12 @@ export default function Home() {
                   >
                     {saved ? (
                       <>
-                        <Check className="w-5 h-5" />
+                        <Check className="h-5 w-5" />
                         Saved!
                       </>
                     ) : (
                       <>
-                        <Save className="w-5 h-5" />
+                        <Save className="h-5 w-5" />
                         Save
                       </>
                     )}
@@ -252,7 +260,10 @@ export default function Home() {
                     onManageBudgets={() => setBudgetManagerOpen(true)}
                   />
 
-                  <CategoryBreakdown categories={displayReport.categorySummaries} budgetStatus={budgetStatus} />
+                  <CategoryBreakdown
+                    categories={displayReport.categorySummaries}
+                    budgetStatus={budgetStatus}
+                  />
 
                   <MonthlyTrends transactions={displayTransactions} />
 
@@ -263,43 +274,46 @@ export default function Home() {
           )}
 
           {!initialLoading && !report && !loading && (
-            <div className="text-center py-24 bg-white rounded-2xl shadow-xl border-2 border-gray-50">
-              <div className="inline-flex items-center justify-center w-24 h-24 bg-gradient-to-br from-blue-50 to-purple-50 rounded-3xl mb-6">
-                <TrendingUp className="w-12 h-12 text-blue-600" />
+            <div className="rounded-2xl border-2 border-gray-50 bg-white py-24 text-center shadow-xl">
+              <div className="mb-6 inline-flex h-24 w-24 items-center justify-center rounded-3xl bg-gradient-to-br from-blue-50 to-purple-50">
+                <TrendingUp className="h-12 w-12 text-blue-600" />
               </div>
-              <h3 className="text-2xl font-bold text-gray-900 mb-3">
+              <h3 className="mb-3 text-2xl font-bold text-gray-900">
                 Ready to analyze your UBS statement?
               </h3>
-              <p className="text-lg text-gray-600 mb-8">
+              <p className="mb-8 text-lg text-gray-600">
                 Upload a CSV file to get started with powerful insights
               </p>
-              <div className="flex flex-wrap items-center justify-center gap-3 mb-8">
+              <div className="mb-8 flex flex-wrap items-center justify-center gap-3">
                 <button
                   onClick={() => setUploadModalOpen(true)}
-                  className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all font-semibold shadow-lg hover:shadow-xl"
+                  className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 px-6 py-3 font-semibold text-white shadow-lg transition-all hover:from-blue-700 hover:to-purple-700 hover:shadow-xl"
                 >
                   Upload CSV File
                 </button>
-                <SavedAnalyses onLoad={handleLoadSaved} refreshTrigger={savedAnalysesRefreshTrigger} />
+                <SavedAnalyses
+                  onLoad={handleLoadSaved}
+                  refreshTrigger={savedAnalysesRefreshTrigger}
+                />
                 <button
                   onClick={() => setBackupRestoreOpen(true)}
-                  className="flex items-center gap-2 px-6 py-3 bg-white border-2 border-gray-200 rounded-xl hover:border-slate-400 hover:bg-slate-50 transition-all font-semibold text-gray-700"
+                  className="flex items-center gap-2 rounded-xl border-2 border-gray-200 bg-white px-6 py-3 font-semibold text-gray-700 transition-all hover:border-slate-400 hover:bg-slate-50"
                 >
-                  <Shield className="w-5 h-5" />
+                  <Shield className="h-5 w-5" />
                   Restore Backup
                 </button>
               </div>
               <div className="flex items-center justify-center gap-8 text-sm text-gray-500">
                 <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                  <div className="h-2 w-2 rounded-full bg-blue-500"></div>
                   <span>Automatic categorization</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
+                  <div className="h-2 w-2 rounded-full bg-purple-500"></div>
                   <span>Beautiful charts</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                  <div className="h-2 w-2 rounded-full bg-green-500"></div>
                   <span>100% private</span>
                 </div>
               </div>
@@ -332,7 +346,6 @@ export default function Home() {
         onClose={() => setBackupRestoreOpen(false)}
         onRestoreComplete={handleRestoreComplete}
       />
-
     </div>
   )
 }

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts'
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts'
 import { ChevronRight, Filter, X } from 'lucide-react'
 import { CategoryDetails } from './CategoryDetails'
 import type { CategorySummary, BudgetWithSpending } from '@/lib/types'
@@ -33,7 +33,7 @@ const BUDGET_STATUS_COLORS = {
   healthy: 'bg-green-500',
   early: 'bg-blue-500',
   warning: 'bg-yellow-500',
-  over: 'bg-red-500'
+  over: 'bg-red-500',
 }
 
 export function CategoryBreakdown({ categories, budgetStatus = [] }: CategoryBreakdownProps) {
@@ -50,17 +50,17 @@ export function CategoryBreakdown({ categories, budgetStatus = [] }: CategoryBre
 
   // Get budget for a specific category
   const getBudgetForCategory = (categoryName: string): BudgetWithSpending | undefined => {
-    return budgetStatus.find(b => b.budget.category === categoryName)
+    return budgetStatus.find((b) => b.budget.category === categoryName)
   }
 
   // Filter categories and recalculate percentages
   const filteredCategories = useMemo(() => {
-    const filtered = categories.filter(cat => !excludedCategories.has(cat.category))
+    const filtered = categories.filter((cat) => !excludedCategories.has(cat.category))
     const totalSpent = filtered.reduce((sum, cat) => sum + cat.totalSpent, 0)
 
-    return filtered.map(cat => ({
+    return filtered.map((cat) => ({
       ...cat,
-      percentage: totalSpent > 0 ? (cat.totalSpent / totalSpent) * 100 : 0
+      percentage: totalSpent > 0 ? (cat.totalSpent / totalSpent) * 100 : 0,
     }))
   }, [categories, excludedCategories])
 
@@ -71,7 +71,7 @@ export function CategoryBreakdown({ categories, budgetStatus = [] }: CategoryBre
   }))
 
   const toggleCategory = (category: string) => {
-    setExcludedCategories(prev => {
+    setExcludedCategories((prev) => {
       const next = new Set(prev)
       if (next.has(category)) {
         next.delete(category)
@@ -95,27 +95,25 @@ export function CategoryBreakdown({ categories, budgetStatus = [] }: CategoryBre
           onClose={() => setSelectedCategory(null)}
         />
       )}
-      
-      <div className="bg-white rounded-2xl shadow-xl p-8 border-2 border-gray-50">
-        <div className="flex items-start justify-between mb-8">
+
+      <div className="rounded-2xl border-2 border-gray-50 bg-white p-8 shadow-xl">
+        <div className="mb-8 flex items-start justify-between">
           <div>
-            <h2 className="text-3xl font-bold text-gray-900 mb-2">
-              Spending by Category
-            </h2>
+            <h2 className="mb-2 text-3xl font-bold text-gray-900">Spending by Category</h2>
             <p className="text-gray-600">Click any category to explore transactions</p>
           </div>
           <button
             onClick={() => setShowFilterPanel(!showFilterPanel)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl font-semibold transition-all ${
+            className={`flex items-center gap-2 rounded-xl px-4 py-2 font-semibold transition-all ${
               excludedCategories.size > 0
-                ? 'bg-blue-100 text-blue-700 border-2 border-blue-300'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200 border-2 border-transparent'
+                ? 'border-2 border-blue-300 bg-blue-100 text-blue-700'
+                : 'border-2 border-transparent bg-gray-100 text-gray-700 hover:bg-gray-200'
             }`}
           >
-            <Filter className="w-4 h-4" />
+            <Filter className="h-4 w-4" />
             Filter
             {excludedCategories.size > 0 && (
-              <span className="bg-blue-600 text-white text-xs px-2 py-0.5 rounded-full">
+              <span className="rounded-full bg-blue-600 px-2 py-0.5 text-xs text-white">
                 {excludedCategories.size}
               </span>
             )}
@@ -124,13 +122,13 @@ export function CategoryBreakdown({ categories, budgetStatus = [] }: CategoryBre
 
         {/* Filter Panel */}
         {showFilterPanel && (
-          <div className="mb-6 p-4 bg-gray-50 rounded-xl border border-gray-200">
-            <div className="flex items-center justify-between mb-3">
+          <div className="mb-6 rounded-xl border border-gray-200 bg-gray-50 p-4">
+            <div className="mb-3 flex items-center justify-between">
               <span className="text-sm font-semibold text-gray-700">Filter Categories</span>
               {excludedCategories.size > 0 && (
                 <button
                   onClick={clearFilters}
-                  className="text-xs text-blue-600 hover:text-blue-800 font-medium"
+                  className="text-xs font-medium text-blue-600 hover:text-blue-800"
                 >
                   Clear all
                 </button>
@@ -143,18 +141,18 @@ export function CategoryBreakdown({ categories, budgetStatus = [] }: CategoryBre
                   <button
                     key={cat.category}
                     onClick={() => toggleCategory(cat.category)}
-                    className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                    className={`flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium transition-all ${
                       isExcluded
                         ? 'bg-gray-200 text-gray-500 line-through'
-                        : 'bg-white border border-gray-200 text-gray-700 hover:border-gray-300'
+                        : 'border border-gray-200 bg-white text-gray-700 hover:border-gray-300'
                     }`}
                   >
                     <div
-                      className={`w-3 h-3 rounded-full ${isExcluded ? 'opacity-40' : ''}`}
+                      className={`h-3 w-3 rounded-full ${isExcluded ? 'opacity-40' : ''}`}
                       style={{ backgroundColor: COLORS[index % COLORS.length] }}
                     />
                     {cat.category}
-                    {isExcluded && <X className="w-3 h-3" />}
+                    {isExcluded && <X className="h-3 w-3" />}
                   </button>
                 )
               })}
@@ -162,9 +160,9 @@ export function CategoryBreakdown({ categories, budgetStatus = [] }: CategoryBre
           </div>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
+        <div className="grid grid-cols-1 gap-8 lg:grid-cols-5">
           <div className="lg:col-span-3">
-            <div className="h-[500px] flex items-center justify-center">
+            <div className="flex h-[500px] items-center justify-center">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
@@ -209,7 +207,7 @@ export function CategoryBreakdown({ categories, budgetStatus = [] }: CategoryBre
                       borderRadius: '12px',
                       padding: '12px',
                       fontSize: '14px',
-                      fontWeight: '600'
+                      fontWeight: '600',
                     }}
                   />
                 </PieChart>
@@ -217,51 +215,59 @@ export function CategoryBreakdown({ categories, budgetStatus = [] }: CategoryBre
             </div>
           </div>
 
-          <div className="lg:col-span-2 space-y-2 max-h-[500px] overflow-y-auto">
+          <div className="max-h-[500px] space-y-2 overflow-y-auto lg:col-span-2">
             {filteredCategories.map((category, index) => {
               const budget = getBudgetForCategory(category.category)
               return (
                 <button
                   key={category.category}
                   onClick={() => setSelectedCategory(category)}
-                  className="w-full flex flex-col p-4 rounded-xl hover:bg-gray-50 transition-all group border-2 border-transparent hover:border-gray-200"
+                  className="group flex w-full flex-col rounded-xl border-2 border-transparent p-4 transition-all hover:border-gray-200 hover:bg-gray-50"
                 >
-                  <div className="flex items-center justify-between w-full">
-                    <div className="flex items-center gap-3 flex-1">
+                  <div className="flex w-full items-center justify-between">
+                    <div className="flex flex-1 items-center gap-3">
                       <div
-                        className="w-5 h-5 rounded-lg flex-shrink-0 shadow-sm"
+                        className="h-5 w-5 flex-shrink-0 rounded-lg shadow-sm"
                         style={{ backgroundColor: COLORS[index % COLORS.length] }}
                       />
-                      <div className="text-left flex-1">
+                      <div className="flex-1 text-left">
                         <p className="text-sm font-semibold text-gray-800 group-hover:text-gray-900">
                           {category.category}
                         </p>
-                        <p className="text-xs text-gray-500">{category.count} transactions • {category.percentage.toFixed(1)}%</p>
+                        <p className="text-xs text-gray-500">
+                          {category.count} transactions • {category.percentage.toFixed(1)}%
+                        </p>
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
                       <p className="text-sm font-bold text-gray-900">
                         {formatCurrency(category.totalSpent)}
                       </p>
-                      <ChevronRight className="w-4 h-4 text-gray-400 group-hover:text-blue-600" />
+                      <ChevronRight className="h-4 w-4 text-gray-400 group-hover:text-blue-600" />
                     </div>
                   </div>
                   {/* Budget Progress Indicator */}
                   {budget && (
                     <div className="mt-2 w-full">
-                      <div className="flex items-center justify-between text-xs mb-1">
-                        <span className={`font-medium ${
-                          budget.status === 'over' ? 'text-red-600' :
-                          budget.status === 'warning' ? 'text-yellow-600' :
-                          budget.status === 'early' ? 'text-blue-600' : 'text-green-600'
-                        }`}>
+                      <div className="mb-1 flex items-center justify-between text-xs">
+                        <span
+                          className={`font-medium ${
+                            budget.status === 'over'
+                              ? 'text-red-600'
+                              : budget.status === 'warning'
+                                ? 'text-yellow-600'
+                                : budget.status === 'early'
+                                  ? 'text-blue-600'
+                                  : 'text-green-600'
+                          }`}
+                        >
                           {budget.percentUsed.toFixed(0)}% of budget
                         </span>
                         <span className="text-gray-500">
                           {formatCurrency(budget.budget.amount)} limit
                         </span>
                       </div>
-                      <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                      <div className="h-1.5 overflow-hidden rounded-full bg-gray-200">
                         <div
                           className={`h-full ${BUDGET_STATUS_COLORS[budget.status]} transition-all`}
                           style={{ width: `${Math.min(budget.percentUsed, 100)}%` }}

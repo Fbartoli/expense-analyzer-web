@@ -1,10 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import {
-  encryptData,
-  decryptData,
-  isValidEncryptedBackup,
-  type EncryptedData,
-} from '@/lib/crypto'
+import { encryptData, decryptData, isValidEncryptedBackup, type EncryptedData } from '@/lib/crypto'
 
 describe('crypto', () => {
   describe('encryptData', () => {
