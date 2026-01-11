@@ -18,7 +18,7 @@ async function deriveKey(password: string, salt: Uint8Array): Promise<CryptoKey>
   return crypto.subtle.deriveKey(
     {
       name: 'PBKDF2',
-      salt: salt.buffer as ArrayBuffer,
+      salt: salt,
       iterations: 100000,
       hash: 'SHA-256',
     },
@@ -47,9 +47,9 @@ export interface EncryptedData {
   checksum: string // For integrity verification
 }
 
-// Convert Uint8Array to Base64
-function arrayBufferToBase64(buffer: ArrayBuffer): string {
-  const bytes = new Uint8Array(buffer)
+// Convert Uint8Array or ArrayBuffer to Base64
+function arrayBufferToBase64(buffer: ArrayBuffer | Uint8Array): string {
+  const bytes = buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer)
   let binary = ''
   for (let i = 0; i < bytes.byteLength; i++) {
     binary += String.fromCharCode(bytes[i])
@@ -87,7 +87,7 @@ export async function encryptData(plaintext: string, password: string): Promise<
   const plaintextBuffer = encoder.encode(plaintext)
 
   const encryptedBuffer = await crypto.subtle.encrypt(
-    { name: 'AES-GCM', iv: iv.buffer as ArrayBuffer },
+    { name: 'AES-GCM', iv: iv },
     key,
     plaintextBuffer
   )
@@ -96,8 +96,8 @@ export async function encryptData(plaintext: string, password: string): Promise<
 
   return {
     version: 1,
-    salt: arrayBufferToBase64(salt.buffer as ArrayBuffer),
-    iv: arrayBufferToBase64(iv.buffer as ArrayBuffer),
+    salt: arrayBufferToBase64(salt),
+    iv: arrayBufferToBase64(iv),
     data: arrayBufferToBase64(encryptedBuffer),
     checksum,
   }
@@ -119,9 +119,9 @@ export async function decryptData(encrypted: EncryptedData, password: string): P
 
   try {
     const decryptedBuffer = await crypto.subtle.decrypt(
-      { name: 'AES-GCM', iv: iv.buffer as ArrayBuffer },
+      { name: 'AES-GCM', iv: iv },
       key,
-      encryptedData.buffer as ArrayBuffer
+      encryptedData
     )
 
     const decoder = new TextDecoder()
