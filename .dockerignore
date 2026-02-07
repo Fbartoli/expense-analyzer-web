@@ -1,0 +1,11 @@
+node_modules
+.next
+.git
+.gitignore
+.husky
+coverage
+test-csv
+__tests__
+test-utils
+*.md
+.claude
