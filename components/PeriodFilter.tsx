@@ -15,6 +15,8 @@ import {
   endOfDay,
 } from 'date-fns'
 import type { Transaction } from '@/lib/types'
+import { Button } from '@/components/ui/button'
+import { Label } from '@/components/ui/label'
 
 export type PeriodPreset =
   | 'all'
@@ -56,7 +58,6 @@ export function PeriodFilter({ transactions, onFilteredTransactions }: PeriodFil
   const [customEnd, setCustomEnd] = useState<string>('')
   const [isOpen, setIsOpen] = useState(false)
 
-  // Calculate date range based on preset
   const dateRange = useMemo(() => {
     const now = new Date()
 
@@ -96,7 +97,6 @@ export function PeriodFilter({ transactions, onFilteredTransactions }: PeriodFil
     }
   }, [selectedPreset, customStart, customEnd])
 
-  // Filter transactions based on date range
   const filteredTransactions = useMemo(() => {
     if (!dateRange) return transactions
 
@@ -107,12 +107,10 @@ export function PeriodFilter({ transactions, onFilteredTransactions }: PeriodFil
     })
   }, [transactions, dateRange])
 
-  // Notify parent of filtered transactions
   useEffect(() => {
     onFilteredTransactions(filteredTransactions, selectedPreset, dateRange)
   }, [filteredTransactions, selectedPreset, dateRange, onFilteredTransactions])
 
-  // Get data range from transactions
   const transactionDateRange = useMemo(() => {
     const dates = transactions
       .map((t) => new Date(t.purchaseDate))
@@ -152,32 +150,37 @@ export function PeriodFilter({ transactions, onFilteredTransactions }: PeriodFil
   return (
     <div className="relative">
       <div className="flex items-center gap-2">
-        <button
+        <Button
+          variant={selectedPreset !== 'all' ? 'default' : 'outline'}
           onClick={() => setIsOpen(!isOpen)}
-          className={`flex items-center gap-2 rounded-xl px-4 py-2.5 font-semibold transition-all ${
+          className={
             selectedPreset !== 'all'
-              ? 'border-2 border-blue-300 bg-blue-100 text-blue-700'
-              : 'border-2 border-gray-200 bg-white text-gray-700 hover:border-gray-300'
-          }`}
+              ? 'border-2 border-blue-300 bg-blue-100 text-blue-700 hover:bg-blue-200'
+              : 'border-2'
+          }
         >
-          <Calendar className="h-4 w-4" />
+          <Calendar className="mr-2 h-4 w-4" />
           <span>{getDisplayLabel()}</span>
-          <ChevronDown className={`h-4 w-4 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
-        </button>
+          <ChevronDown
+            className={`ml-2 h-4 w-4 transition-transform ${isOpen ? 'rotate-180' : ''}`}
+          />
+        </Button>
 
         {selectedPreset !== 'all' && (
-          <button
+          <Button
+            variant="ghost"
+            size="icon"
             onClick={clearFilter}
-            className="rounded-lg p-2 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700"
+            className="h-8 w-8"
             title="Clear filter"
+            aria-label="Clear filter"
           >
             <X className="h-4 w-4" />
-          </button>
+          </Button>
         )}
 
-        {/* Transaction count indicator */}
         {selectedPreset !== 'all' && (
-          <span className="text-sm text-gray-500">
+          <span className="text-sm text-muted-foreground">
             {filteredTransactions.length} of {transactions.length} transactions
           </span>
         )}
@@ -187,10 +190,10 @@ export function PeriodFilter({ transactions, onFilteredTransactions }: PeriodFil
       {isOpen && (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)} />
-          <div className="absolute left-0 top-full z-50 mt-2 min-w-[280px] rounded-xl border border-gray-200 bg-white shadow-2xl">
+          <div className="absolute left-0 top-full z-50 mt-2 min-w-[280px] rounded-xl border border-gray-200 bg-white shadow-2xl dark:border-gray-700 dark:bg-gray-950">
             {/* Presets */}
             <div className="p-2">
-              <p className="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
+              <p className="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 Quick Filters
               </p>
               <div className="grid grid-cols-2 gap-1">
@@ -201,7 +204,7 @@ export function PeriodFilter({ transactions, onFilteredTransactions }: PeriodFil
                     className={`rounded-lg px-3 py-2 text-left text-sm font-medium transition-colors ${
                       selectedPreset === preset.value
                         ? 'bg-blue-100 text-blue-700'
-                        : 'text-gray-700 hover:bg-gray-100'
+                        : 'text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700'
                     }`}
                   >
                     {preset.label}
@@ -211,14 +214,17 @@ export function PeriodFilter({ transactions, onFilteredTransactions }: PeriodFil
             </div>
 
             {/* Custom Range */}
-            <div className="border-t border-gray-100 p-3">
-              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
+            <div className="border-t border-gray-100 p-3 dark:border-gray-800">
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 Custom Range
               </p>
               <div className="mb-2 flex gap-2">
                 <div className="flex-1">
-                  <label className="mb-1 block text-xs text-gray-500">From</label>
+                  <Label htmlFor="period-from" className="mb-1 block text-xs text-muted-foreground">
+                    From
+                  </Label>
                   <input
+                    id="period-from"
                     type="date"
                     value={customStart}
                     onChange={(e) => {
@@ -231,12 +237,15 @@ export function PeriodFilter({ transactions, onFilteredTransactions }: PeriodFil
                         ? format(transactionDateRange.start, 'yyyy-MM-dd')
                         : undefined
                     }
-                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                    className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none dark:border-gray-700 dark:bg-gray-950"
                   />
                 </div>
                 <div className="flex-1">
-                  <label className="mb-1 block text-xs text-gray-500">To</label>
+                  <Label htmlFor="period-to" className="mb-1 block text-xs text-muted-foreground">
+                    To
+                  </Label>
                   <input
+                    id="period-to"
                     type="date"
                     value={customEnd}
                     onChange={(e) => {
@@ -249,24 +258,21 @@ export function PeriodFilter({ transactions, onFilteredTransactions }: PeriodFil
                         ? format(transactionDateRange.end, 'yyyy-MM-dd')
                         : undefined
                     }
-                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                    className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none dark:border-gray-700 dark:bg-gray-950"
                   />
                 </div>
               </div>
               {selectedPreset === 'custom' && customStart && customEnd && (
-                <button
-                  onClick={handleCustomApply}
-                  className="w-full rounded-lg bg-blue-600 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-700"
-                >
+                <Button onClick={handleCustomApply} className="w-full" size="sm">
                   Apply
-                </button>
+                </Button>
               )}
             </div>
 
             {/* Data range info */}
             {transactionDateRange && (
-              <div className="rounded-b-xl border-t border-gray-100 bg-gray-50 px-3 py-2">
-                <p className="text-xs text-gray-500">
+              <div className="rounded-b-xl border-t border-gray-100 bg-gray-50 px-3 py-2 dark:border-gray-800 dark:bg-gray-900">
+                <p className="text-xs text-muted-foreground">
                   Data range: {format(transactionDateRange.start, 'MMM d, yyyy')} -{' '}
                   {format(transactionDateRange.end, 'MMM d, yyyy')}
                 </p>

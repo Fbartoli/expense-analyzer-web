@@ -1,16 +1,35 @@
 'use client'
 
 import { format } from 'date-fns'
-import { X, TrendingDown } from 'lucide-react'
-import type { Transaction } from '@/lib/types'
+import { TrendingDown } from 'lucide-react'
+import type { Transaction, ManualRecurringTransaction } from '@/lib/types'
+import { transactionFingerprint } from '@/lib/recurring'
+import { MarkRecurringButton } from './MarkRecurringButton'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog'
+import { Badge } from '@/components/ui/badge'
+import { ScrollArea } from '@/components/ui/scroll-area'
 
 interface CategoryDetailsProps {
   category: string
   transactions: Transaction[]
   onClose: () => void
+  onMarkRecurring?: (entry: Omit<ManualRecurringTransaction, 'id'>) => void
+  taggedFingerprints?: Set<string>
 }
 
-export function CategoryDetails({ category, transactions, onClose }: CategoryDetailsProps) {
+export function CategoryDetails({
+  category,
+  transactions,
+  onClose,
+  onMarkRecurring,
+  taggedFingerprints,
+}: CategoryDetailsProps) {
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-CH', {
       style: 'currency',
@@ -22,54 +41,46 @@ export function CategoryDetails({ category, transactions, onClose }: CategoryDet
   const avgTransaction = totalSpent / transactions.length
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
-      <div className="max-h-[90vh] w-full max-w-4xl overflow-hidden rounded-xl bg-white shadow-2xl">
-        <div className="bg-gradient-to-r from-blue-500 to-purple-600 p-6 text-white">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-2xl font-bold">{category}</h2>
-              <p className="mt-1 text-blue-100">
-                {transactions.length} transactions • {formatCurrency(totalSpent)} total
-              </p>
-            </div>
-            <button
-              onClick={onClose}
-              className="rounded-lg p-2 transition-colors hover:bg-white/20"
-            >
-              <X className="h-6 w-6" />
-            </button>
-          </div>
+    <Dialog open={true} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-h-[90vh] max-w-4xl overflow-hidden p-0">
+        <DialogHeader className="bg-gradient-to-r from-blue-500 to-purple-600 p-6 text-white">
+          <DialogTitle className="text-2xl font-bold text-white">{category}</DialogTitle>
+          <DialogDescription className="text-blue-100">
+            {transactions.length} transactions • {formatCurrency(totalSpent)} total
+          </DialogDescription>
 
           <div className="mt-4 grid grid-cols-2 gap-4">
             <div className="rounded-lg bg-white/10 p-3">
               <p className="text-sm text-blue-100">Average Transaction</p>
-              <p className="text-xl font-bold">{formatCurrency(avgTransaction)}</p>
+              <p className="text-xl font-bold text-white">{formatCurrency(avgTransaction)}</p>
             </div>
             <div className="rounded-lg bg-white/10 p-3">
               <p className="text-sm text-blue-100">Total Spent</p>
-              <p className="text-xl font-bold">{formatCurrency(totalSpent)}</p>
+              <p className="text-xl font-bold text-white">{formatCurrency(totalSpent)}</p>
             </div>
           </div>
-        </div>
+        </DialogHeader>
 
-        <div className="max-h-[calc(90vh-220px)] overflow-y-auto p-6">
+        <ScrollArea className="max-h-[calc(90vh-220px)] p-6">
           <div className="space-y-3">
             {transactions
               .sort((a, b) => (b.debit || 0) - (a.debit || 0))
               .map((transaction, index) => (
                 <div
                   key={index}
-                  className="rounded-lg border border-gray-200 p-4 transition-shadow hover:shadow-md"
+                  className="rounded-lg border border-gray-200 p-4 transition-shadow hover:shadow-md dark:border-gray-700"
                 >
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
                       <div className="flex items-center gap-3">
-                        <div className="rounded-lg bg-red-50 p-2">
+                        <div className="rounded-lg bg-red-50 p-2 dark:bg-red-950">
                           <TrendingDown className="h-4 w-4 text-red-500" />
                         </div>
                         <div>
-                          <h3 className="font-semibold text-gray-900">{transaction.bookingText}</h3>
-                          <div className="mt-1 flex items-center gap-3 text-sm text-gray-500">
+                          <h3 className="font-semibold text-gray-900 dark:text-gray-100">
+                            {transaction.bookingText}
+                          </h3>
+                          <div className="mt-1 flex items-center gap-3 text-sm text-muted-foreground">
                             <span>
                               {transaction.purchaseDate &&
                               !isNaN(transaction.purchaseDate.getTime())
@@ -77,30 +88,39 @@ export function CategoryDetails({ category, transactions, onClose }: CategoryDet
                                 : 'Invalid date'}
                             </span>
                             <span>•</span>
-                            <span className="inline-flex items-center rounded bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700">
+                            <Badge variant="secondary" className="text-xs">
                               {transaction.sector}
-                            </span>
+                            </Badge>
                           </div>
                         </div>
                       </div>
                       {transaction.accountHolder && (
-                        <p className="ml-12 mt-2 text-xs text-gray-500">
+                        <p className="ml-12 mt-2 text-xs text-muted-foreground">
                           {transaction.accountHolder}
                         </p>
                       )}
                     </div>
-                    <div className="ml-4 text-right">
+                    <div className="ml-4 flex flex-col items-end gap-1">
                       <p className="text-lg font-bold text-red-600">
                         {formatCurrency(transaction.debit || 0)}
                       </p>
-                      <p className="mt-1 text-xs text-gray-500">{transaction.currency}</p>
+                      <p className="text-xs text-muted-foreground">{transaction.currency}</p>
+                      {onMarkRecurring && (
+                        <MarkRecurringButton
+                          transaction={transaction}
+                          isAlreadyTagged={
+                            taggedFingerprints?.has(transactionFingerprint(transaction)) ?? false
+                          }
+                          onMarkRecurring={onMarkRecurring}
+                        />
+                      )}
                     </div>
                   </div>
                 </div>
               ))}
           </div>
-        </div>
-      </div>
-    </div>
+        </ScrollArea>
+      </DialogContent>
+    </Dialog>
   )
 }

@@ -1,7 +1,10 @@
 'use client'
 
 import { useRef, useState } from 'react'
-import { Upload, FileText, Loader2, X, AlertTriangle } from 'lucide-react'
+import { Upload, FileText, Loader2, AlertTriangle } from 'lucide-react'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
 
@@ -67,23 +70,18 @@ export function FileUpload({ onFileUpload, loading = false, isOpen, onClose }: F
     fileInputRef.current?.click()
   }
 
-  if (!isOpen) return null
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
-      <div className="relative w-full max-w-2xl rounded-2xl bg-white p-8 shadow-2xl">
-        <button
-          onClick={onClose}
-          className="absolute right-4 top-4 z-10 rounded-lg p-2 transition-colors hover:bg-gray-100"
-        >
-          <X className="h-6 w-6 text-gray-600" />
-        </button>
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-w-2xl p-8">
+        <DialogHeader className="sr-only">
+          <DialogTitle>Upload your expense CSV</DialogTitle>
+        </DialogHeader>
 
         <div
-          className={`border-3 relative rounded-2xl border-dashed p-16 transition-all ${
+          className={`relative rounded-2xl border-[3px] border-dashed p-16 transition-all ${
             dragActive
-              ? 'scale-[1.02] border-blue-500 bg-blue-50'
-              : 'border-gray-300 hover:border-blue-400 hover:bg-gray-50'
+              ? 'scale-[1.02] border-blue-500 bg-blue-50 dark:bg-blue-950'
+              : 'border-gray-300 hover:border-blue-400 hover:bg-gray-50 dark:border-gray-600 dark:hover:bg-gray-800'
           }`}
           onDragEnter={handleDrag}
           onDragLeave={handleDrag}
@@ -101,55 +99,65 @@ export function FileUpload({ onFileUpload, loading = false, isOpen, onClose }: F
 
           <div className="text-center">
             {loading ? (
-              <>
-                <Loader2 className="mx-auto mb-6 h-20 w-20 animate-spin text-blue-600" />
-                <p className="mb-2 text-xl font-bold text-gray-800">Processing...</p>
-                <p className="text-base text-gray-600">Analyzing your expense data</p>
-              </>
+              <div role="status">
+                <Loader2
+                  className="mx-auto mb-6 h-20 w-20 animate-spin text-blue-600"
+                  aria-hidden="true"
+                />
+                <p className="mb-2 text-xl font-bold text-gray-800 dark:text-gray-200">
+                  Processing...
+                </p>
+                <p className="text-base text-muted-foreground">Analyzing your expense data</p>
+              </div>
             ) : selectedFile ? (
               <>
                 <FileText className="mx-auto mb-6 h-20 w-20 text-green-500" />
-                <p className="mb-2 text-xl font-bold text-gray-800">{selectedFile.name}</p>
-                <p className="mb-6 text-base text-gray-600">
+                <p className="mb-2 text-xl font-bold text-gray-800 dark:text-gray-200">
+                  {selectedFile.name}
+                </p>
+                <p className="mb-6 text-base text-muted-foreground">
                   {(selectedFile.size / 1024).toFixed(2)} KB
                 </p>
-                <button
+                <Button
                   onClick={onButtonClick}
-                  className="transform rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 px-8 py-3 font-semibold text-white shadow-lg transition-all hover:-translate-y-0.5 hover:from-blue-700 hover:to-purple-700 hover:shadow-xl"
+                  className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
                 >
                   Upload Different File
-                </button>
+                </Button>
               </>
             ) : (
               <>
                 <Upload className="mx-auto mb-6 h-20 w-20 text-gray-400" />
-                <p className="mb-3 text-2xl font-bold text-gray-800">Upload your expense CSV</p>
-                <p className="mb-6 text-base text-gray-600">
+                <p className="mb-3 text-2xl font-bold text-gray-800 dark:text-gray-200">
+                  Upload your expense CSV
+                </p>
+                <p className="mb-6 text-base text-muted-foreground">
                   Drag and drop your file here, or click to browse
                 </p>
                 {fileError && (
-                  <div className="mb-6 flex items-center justify-center gap-2 rounded-xl border border-red-200 bg-red-50 p-3 text-red-700">
-                    <AlertTriangle className="h-5 w-5 flex-shrink-0" />
-                    <span>{fileError}</span>
-                  </div>
+                  <Alert variant="destructive" className="mb-6 inline-flex">
+                    <AlertTriangle className="h-4 w-4" />
+                    <AlertDescription>{fileError}</AlertDescription>
+                  </Alert>
                 )}
-                <button
+                <Button
+                  size="lg"
                   onClick={onButtonClick}
-                  className="transform rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 px-8 py-4 text-lg font-bold text-white shadow-xl transition-all hover:-translate-y-1 hover:from-blue-700 hover:to-purple-700 hover:shadow-2xl"
+                  className="bg-gradient-to-r from-blue-600 to-purple-600 text-lg font-bold hover:from-blue-700 hover:to-purple-700"
                 >
                   Select File
-                </button>
+                </Button>
               </>
             )}
           </div>
         </div>
 
-        <div className="mt-6 text-center text-sm text-gray-500">
+        <div className="mt-6 text-center text-sm text-muted-foreground">
           <p>
             Supported format: CSV files with columns for account, date, description, amount, etc.
           </p>
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   )
 }

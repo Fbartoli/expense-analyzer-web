@@ -9,6 +9,7 @@ import {
   csvWithIncome,
   csvWithEmptyDate,
   csvWithInvalidDate,
+  bankStatementCSV,
 } from '../../fixtures/csv-samples'
 
 describe('parser', () => {
@@ -175,6 +176,73 @@ Account number;Card number;Account/Cardholder;Purchase date;Booking text;Sector;
       expect(transactions[0].cardNumber).toBe('')
       expect(transactions[0].sector).toBe('Other')
       expect(transactions[0].originalCurrency).toBe('')
+    })
+  })
+
+  describe('bank statement format', () => {
+    it('should parse bank statement CSV with metadata headers', async () => {
+      const file = createMockCSVFile(bankStatementCSV)
+      const transactions = await parseCSV(file)
+
+      expect(transactions).toHaveLength(3)
+    })
+
+    it('should parse YYYY-MM-DD dates correctly', async () => {
+      const file = createMockCSVFile(bankStatementCSV)
+      const transactions = await parseCSV(file)
+
+      expect(transactions[0].purchaseDate.getFullYear()).toBe(2026)
+      expect(transactions[0].purchaseDate.getMonth()).toBe(1) // February
+      expect(transactions[0].purchaseDate.getDate()).toBe(6)
+    })
+
+    it('should convert negative debits to positive values', async () => {
+      const file = createMockCSVFile(bankStatementCSV)
+      const transactions = await parseCSV(file)
+
+      expect(transactions[0].debit).toBe(25.3)
+      expect(transactions[0].credit).toBeNull()
+    })
+
+    it('should parse credit transactions', async () => {
+      const file = createMockCSVFile(bankStatementCSV)
+      const transactions = await parseCSV(file)
+
+      expect(transactions[1].credit).toBe(3000)
+      expect(transactions[1].debit).toBeNull()
+    })
+
+    it('should combine description fields into bookingText', async () => {
+      const file = createMockCSVFile(bankStatementCSV)
+      const transactions = await parseCSV(file)
+
+      expect(transactions[0].bookingText).toContain('ALDI SUISSE 83')
+      expect(transactions[0].bookingText).toContain('Debit card payment')
+    })
+
+    it('should set currency from the Currency column', async () => {
+      const file = createMockCSVFile(bankStatementCSV)
+      const transactions = await parseCSV(file)
+
+      expect(transactions[0].currency).toBe('CHF')
+    })
+
+    it('should extract card number from Description2', async () => {
+      const file = createMockCSVFile(bankStatementCSV)
+      const transactions = await parseCSV(file)
+
+      // First transaction has "19950466-0 09/26; Debit card payment"
+      expect(transactions[0].cardNumber).toBe('19950466')
+      // Third transaction also has "19950466-0 09/26; Debit card payment"
+      expect(transactions[2].cardNumber).toBe('19950466')
+    })
+
+    it('should set empty cardNumber for transactions without card info', async () => {
+      const file = createMockCSVFile(bankStatementCSV)
+      const transactions = await parseCSV(file)
+
+      // Second transaction is e-banking credit with no card number
+      expect(transactions[1].cardNumber).toBe('')
     })
   })
 })

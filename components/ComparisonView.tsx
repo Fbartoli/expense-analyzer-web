@@ -1,12 +1,24 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
-import { X, GitCompare, TrendingUp, TrendingDown, Minus, ChevronDown } from 'lucide-react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
+import { GitCompare, TrendingUp, TrendingDown, Minus, ChevronDown } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
+import { useChartTheme } from '@/lib/use-chart-theme'
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, getWeek } from 'date-fns'
 import { getAllAnalyses, type SavedAnalysis } from '@/lib/db'
 import { categorizeTransaction } from '@/lib/analyzer'
-import type { Transaction } from '@/lib/types'
+import type { Transaction, ExpenseReport } from '@/lib/types'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Card, CardContent } from '@/components/ui/card'
+import { Label } from '@/components/ui/label'
 
 interface ComparisonViewProps {
   isOpen: boolean
@@ -32,6 +44,7 @@ interface CategoryComparison {
 }
 
 export function ComparisonView({ isOpen, onClose, currentTransactions }: ComparisonViewProps) {
+  const chartTheme = useChartTheme()
   const [analyses, setAnalyses] = useState<SavedAnalysis[]>([])
   const [selectedAnalysis, setSelectedAnalysis] = useState<SavedAnalysis | null>(null)
   const [periodType, setPeriodType] = useState<PeriodType>('monthly')
@@ -39,19 +52,12 @@ export function ComparisonView({ isOpen, onClose, currentTransactions }: Compari
   const [selectedPeriod2, setSelectedPeriod2] = useState<string>('')
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    if (isOpen) {
-      loadAnalyses()
-    }
-  }, [isOpen])
-
-  const loadAnalyses = async () => {
+  const loadAnalyses = useCallback(async () => {
     setLoading(true)
     try {
       const data = await getAllAnalyses()
       setAnalyses(data)
 
-      // If we have current transactions, create a virtual "current" analysis
       if (currentTransactions && currentTransactions.length > 0) {
         setSelectedAnalysis({
           id: -1,
@@ -59,7 +65,7 @@ export function ComparisonView({ isOpen, onClose, currentTransactions }: Compari
           fileName: 'current',
           uploadDate: new Date(),
           transactions: currentTransactions,
-          report: null as any, // Not needed for comparison
+          report: null as unknown as ExpenseReport,
         })
       } else if (data.length > 0) {
         setSelectedAnalysis(data[0])
@@ -69,9 +75,14 @@ export function ComparisonView({ isOpen, onClose, currentTransactions }: Compari
     } finally {
       setLoading(false)
     }
-  }
+  }, [currentTransactions])
 
-  // Generate available periods from transactions
+  useEffect(() => {
+    if (isOpen) {
+      loadAnalyses()
+    }
+  }, [isOpen, loadAnalyses])
+
   const availablePeriods = useMemo((): Period[] => {
     if (!selectedAnalysis) return []
 
@@ -110,11 +121,9 @@ export function ComparisonView({ isOpen, onClose, currentTransactions }: Compari
       }
     })
 
-    // Sort by date
     return periods.sort((a, b) => a.start.getTime() - b.start.getTime())
   }, [selectedAnalysis, periodType])
 
-  // Auto-select periods when available
   useEffect(() => {
     if (availablePeriods.length >= 2) {
       setSelectedPeriod1(availablePeriods[0].key)
@@ -140,21 +149,22 @@ export function ComparisonView({ isOpen, onClose, currentTransactions }: Compari
     return `${sign}${percent.toFixed(1)}%`
   }
 
-  // Get transactions for a period
-  const getTransactionsForPeriod = (periodKey: string): Transaction[] => {
-    if (!selectedAnalysis) return []
+  const getTransactionsForPeriod = useCallback(
+    (periodKey: string): Transaction[] => {
+      if (!selectedAnalysis) return []
 
-    const period = availablePeriods.find((p) => p.key === periodKey)
-    if (!period) return []
+      const period = availablePeriods.find((p) => p.key === periodKey)
+      if (!period) return []
 
-    return selectedAnalysis.transactions.filter((t) => {
-      const date = new Date(t.purchaseDate)
-      if (isNaN(date.getTime())) return false
-      return date >= period.start && date <= period.end
-    })
-  }
+      return selectedAnalysis.transactions.filter((t) => {
+        const date = new Date(t.purchaseDate)
+        if (isNaN(date.getTime())) return false
+        return date >= period.start && date <= period.end
+      })
+    },
+    [selectedAnalysis, availablePeriods]
+  )
 
-  // Calculate comparison data
   const comparisonData = useMemo(() => {
     if (!selectedPeriod1 || !selectedPeriod2) return null
 
@@ -164,13 +174,11 @@ export function ComparisonView({ isOpen, onClose, currentTransactions }: Compari
     const period1Info = availablePeriods.find((p) => p.key === selectedPeriod1)
     const period2Info = availablePeriods.find((p) => p.key === selectedPeriod2)
 
-    // Calculate totals
     const total1 = transactions1.reduce((sum, t) => sum + (t.debit || 0), 0)
     const total2 = transactions2.reduce((sum, t) => sum + (t.debit || 0), 0)
     const totalDiff = total2 - total1
     const totalPercentChange = total1 > 0 ? ((total2 - total1) / total1) * 100 : 0
 
-    // Category breakdown
     const categoryMap1 = new Map<string, number>()
     const categoryMap2 = new Map<string, number>()
 
@@ -215,9 +223,8 @@ export function ComparisonView({ isOpen, onClose, currentTransactions }: Compari
       transactionCount2: transactions2.length,
       categoryComparisons,
     }
-  }, [selectedPeriod1, selectedPeriod2, selectedAnalysis, availablePeriods])
+  }, [selectedPeriod1, selectedPeriod2, availablePeriods, getTransactionsForPeriod])
 
-  // Prepare chart data
   const chartData = useMemo(() => {
     if (!comparisonData) return []
     return comparisonData.categoryComparisons.slice(0, 8).map((c) => ({
@@ -228,29 +235,26 @@ export function ComparisonView({ isOpen, onClose, currentTransactions }: Compari
     }))
   }, [comparisonData])
 
-  if (!isOpen) return null
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
-      <div className="flex max-h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="flex max-h-[90vh] max-w-5xl flex-col overflow-hidden p-0">
         {/* Header */}
-        <div className="flex items-center justify-between border-b bg-gradient-to-r from-blue-600 to-purple-600 p-6">
+        <DialogHeader className="border-b bg-gradient-to-r from-blue-600 to-purple-600 p-6">
           <div className="flex items-center gap-3">
             <div className="rounded-xl bg-white/20 p-2">
               <GitCompare className="h-6 w-6 text-white" />
             </div>
             <div>
-              <h2 className="text-2xl font-bold text-white">Compare Periods</h2>
-              <p className="text-sm text-blue-100">Compare spending between time periods</p>
+              <DialogTitle className="text-2xl font-bold text-white">Compare Periods</DialogTitle>
+              <DialogDescription className="text-sm text-blue-100">
+                Compare spending between time periods
+              </DialogDescription>
             </div>
           </div>
-          <button onClick={onClose} className="rounded-xl p-2 transition-colors hover:bg-white/20">
-            <X className="h-6 w-6 text-white" />
-          </button>
-        </div>
+        </DialogHeader>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="overflow-y-auto p-6" style={{ maxHeight: 'calc(90vh - 100px)' }}>
           {loading ? (
             <div className="flex items-center justify-center py-12">
               <div className="h-12 w-12 animate-spin rounded-full border-4 border-blue-600 border-t-transparent"></div>
@@ -259,13 +263,16 @@ export function ComparisonView({ isOpen, onClose, currentTransactions }: Compari
             <div className="space-y-6">
               {/* Analysis & Period Type Selection */}
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                {/* Analysis Selector */}
                 <div>
-                  <label className="mb-2 block text-sm font-semibold text-gray-700">
+                  <Label
+                    htmlFor="comparison-data-source"
+                    className="mb-2 block text-sm font-semibold"
+                  >
                     Data Source
-                  </label>
+                  </Label>
                   <div className="relative">
                     <select
+                      id="comparison-data-source"
                       value={selectedAnalysis?.id || ''}
                       onChange={(e) => {
                         const id = Number(e.target.value)
@@ -276,14 +283,14 @@ export function ComparisonView({ isOpen, onClose, currentTransactions }: Compari
                             fileName: 'current',
                             uploadDate: new Date(),
                             transactions: currentTransactions,
-                            report: null as any,
+                            report: null as unknown as ExpenseReport,
                           })
                         } else {
                           const selected = analyses.find((a) => a.id === id)
                           setSelectedAnalysis(selected || null)
                         }
                       }}
-                      className="w-full cursor-pointer appearance-none rounded-xl border-2 border-gray-200 bg-white p-3 pr-10 transition-colors hover:border-blue-300 focus:border-blue-500 focus:outline-none"
+                      className="w-full cursor-pointer appearance-none rounded-xl border-2 border-gray-200 bg-white p-3 pr-10 transition-colors hover:border-blue-300 focus:border-blue-500 focus:outline-none dark:border-gray-700 dark:bg-gray-950"
                     >
                       {currentTransactions && currentTransactions.length > 0 && (
                         <option value={-1}>Current Analysis</option>
@@ -294,46 +301,37 @@ export function ComparisonView({ isOpen, onClose, currentTransactions }: Compari
                         </option>
                       ))}
                     </select>
-                    <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+                    <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400 dark:text-gray-500" />
                   </div>
                 </div>
 
-                {/* Period Type */}
                 <div>
-                  <label className="mb-2 block text-sm font-semibold text-gray-700">
-                    Compare By
-                  </label>
+                  <Label className="mb-2 block text-sm font-semibold">Compare By</Label>
                   <div className="flex gap-2">
-                    <button
+                    <Button
                       onClick={() => setPeriodType('monthly')}
-                      className={`flex-1 rounded-xl px-4 py-3 font-semibold transition-all ${
-                        periodType === 'monthly'
-                          ? 'bg-blue-600 text-white'
-                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                      }`}
+                      variant={periodType === 'monthly' ? 'default' : 'secondary'}
+                      className="flex-1"
                     >
                       Monthly
-                    </button>
-                    <button
+                    </Button>
+                    <Button
                       onClick={() => setPeriodType('weekly')}
-                      className={`flex-1 rounded-xl px-4 py-3 font-semibold transition-all ${
-                        periodType === 'weekly'
-                          ? 'bg-blue-600 text-white'
-                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                      }`}
+                      variant={periodType === 'weekly' ? 'default' : 'secondary'}
+                      className="flex-1"
                     >
                       Weekly
-                    </button>
+                    </Button>
                   </div>
                 </div>
               </div>
 
               {/* Period Selectors */}
               {availablePeriods.length < 2 ? (
-                <div className="rounded-xl bg-gray-50 py-8 text-center">
-                  <GitCompare className="mx-auto mb-3 h-12 w-12 text-gray-300" />
-                  <p className="font-medium text-gray-600">Not enough data</p>
-                  <p className="text-sm text-gray-500">
+                <div className="rounded-xl bg-gray-50 py-8 text-center dark:bg-gray-900">
+                  <GitCompare className="mx-auto mb-3 h-12 w-12 text-gray-300 dark:text-gray-600" />
+                  <p className="font-medium text-gray-600 dark:text-gray-400">Not enough data</p>
+                  <p className="text-sm text-muted-foreground">
                     Need at least 2 {periodType === 'monthly' ? 'months' : 'weeks'} of data to
                     compare
                   </p>
@@ -342,14 +340,18 @@ export function ComparisonView({ isOpen, onClose, currentTransactions }: Compari
                 <>
                   <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                     <div>
-                      <label className="mb-2 block text-sm font-semibold text-gray-700">
+                      <Label
+                        htmlFor="comparison-period-1"
+                        className="mb-2 block text-sm font-semibold"
+                      >
                         Period 1
-                      </label>
+                      </Label>
                       <div className="relative">
                         <select
+                          id="comparison-period-1"
                           value={selectedPeriod1}
                           onChange={(e) => setSelectedPeriod1(e.target.value)}
-                          className="w-full cursor-pointer appearance-none rounded-xl border-2 border-blue-200 bg-blue-50 p-3 pr-10 transition-colors hover:border-blue-300 focus:border-blue-500 focus:outline-none"
+                          className="w-full cursor-pointer appearance-none rounded-xl border-2 border-blue-200 bg-blue-50 p-3 pr-10 transition-colors hover:border-blue-300 focus:border-blue-500 focus:outline-none dark:border-blue-800 dark:bg-blue-950"
                         >
                           {availablePeriods.map((period) => (
                             <option key={period.key} value={period.key}>
@@ -362,14 +364,18 @@ export function ComparisonView({ isOpen, onClose, currentTransactions }: Compari
                     </div>
 
                     <div>
-                      <label className="mb-2 block text-sm font-semibold text-gray-700">
+                      <Label
+                        htmlFor="comparison-period-2"
+                        className="mb-2 block text-sm font-semibold"
+                      >
                         Period 2
-                      </label>
+                      </Label>
                       <div className="relative">
                         <select
+                          id="comparison-period-2"
                           value={selectedPeriod2}
                           onChange={(e) => setSelectedPeriod2(e.target.value)}
-                          className="w-full cursor-pointer appearance-none rounded-xl border-2 border-purple-200 bg-purple-50 p-3 pr-10 transition-colors hover:border-purple-300 focus:border-purple-500 focus:outline-none"
+                          className="w-full cursor-pointer appearance-none rounded-xl border-2 border-purple-200 bg-purple-50 p-3 pr-10 transition-colors hover:border-purple-300 focus:border-purple-500 focus:outline-none dark:border-purple-800 dark:bg-purple-950"
                         >
                           {availablePeriods.map((period) => (
                             <option key={period.key} value={period.key}>
@@ -447,135 +453,147 @@ export function ComparisonView({ isOpen, onClose, currentTransactions }: Compari
 
                       {/* Category Comparison Chart */}
                       {chartData.length > 0 && (
-                        <div className="rounded-2xl bg-gray-50 p-5">
-                          <h3 className="mb-4 text-lg font-semibold text-gray-900">
-                            Category Comparison
-                          </h3>
-                          <div className="h-[280px]">
-                            <ResponsiveContainer width="100%" height="100%">
-                              <BarChart
-                                data={chartData}
-                                layout="vertical"
-                                margin={{ top: 5, right: 30, left: 80, bottom: 5 }}
-                              >
-                                <CartesianGrid
-                                  strokeDasharray="3 3"
-                                  stroke="#e5e7eb"
-                                  horizontal={true}
-                                  vertical={false}
-                                />
-                                <XAxis
-                                  type="number"
-                                  tick={{ fontSize: 12, fill: '#6b7280' }}
-                                  tickFormatter={(value) =>
-                                    value >= 1000 ? `${(value / 1000).toFixed(0)}k` : value
-                                  }
-                                />
-                                <YAxis
-                                  type="category"
-                                  dataKey="name"
-                                  tick={{ fontSize: 12, fill: '#6b7280' }}
-                                  width={80}
-                                />
-                                <Tooltip
-                                  formatter={(value: number, name: string) => [
-                                    formatCurrency(value),
-                                    name === 'period1'
-                                      ? comparisonData.period1Label
-                                      : comparisonData.period2Label,
-                                  ]}
-                                  labelFormatter={(label) => {
-                                    const item = chartData.find((d) => d.name === label)
-                                    return item?.fullName || label
-                                  }}
-                                  contentStyle={{
-                                    backgroundColor: 'white',
-                                    border: '2px solid #e5e7eb',
-                                    borderRadius: '12px',
-                                    padding: '12px',
-                                  }}
-                                />
-                                <Bar
-                                  dataKey="period1"
-                                  name="period1"
-                                  fill="#3b82f6"
-                                  radius={[0, 4, 4, 0]}
-                                />
-                                <Bar
-                                  dataKey="period2"
-                                  name="period2"
-                                  fill="#8b5cf6"
-                                  radius={[0, 4, 4, 0]}
-                                />
-                              </BarChart>
-                            </ResponsiveContainer>
-                          </div>
-                          <div className="mt-3 flex items-center justify-center gap-6">
-                            <div className="flex items-center gap-2">
-                              <div className="h-3 w-3 rounded bg-blue-500"></div>
-                              <span className="text-sm text-gray-600">
-                                {comparisonData.period1Label}
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <div className="h-3 w-3 rounded bg-purple-500"></div>
-                              <span className="text-sm text-gray-600">
-                                {comparisonData.period2Label}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Detailed Category Changes */}
-                      <div className="rounded-2xl bg-gray-50 p-5">
-                        <h3 className="mb-4 text-lg font-semibold text-gray-900">
-                          Category Changes
-                        </h3>
-                        <div className="max-h-[300px] space-y-2 overflow-y-auto">
-                          {comparisonData.categoryComparisons.map((cat) => (
+                        <Card className="bg-gray-50 dark:bg-gray-900">
+                          <CardContent className="p-5">
+                            <h3 className="mb-4 text-lg font-semibold text-gray-900 dark:text-gray-100">
+                              Category Comparison
+                            </h3>
                             <div
-                              key={cat.category}
-                              className="flex items-center justify-between rounded-xl border border-gray-100 bg-white p-3"
+                              className="h-[280px]"
+                              role="img"
+                              aria-label="Bar chart comparing spending between two periods by category."
                             >
-                              <div className="flex-1">
-                                <p className="text-sm font-semibold text-gray-900">
-                                  {cat.category}
-                                </p>
-                                <div className="mt-1 flex items-center gap-3 text-xs text-gray-500">
-                                  <span className="font-medium text-blue-600">
-                                    {formatCurrency(cat.period1)}
-                                  </span>
-                                  <span>→</span>
-                                  <span className="font-medium text-purple-600">
-                                    {formatCurrency(cat.period2)}
-                                  </span>
-                                </div>
+                              <ResponsiveContainer width="100%" height="100%" aria-hidden="true">
+                                <BarChart
+                                  data={chartData}
+                                  layout="vertical"
+                                  margin={{ top: 5, right: 30, left: 80, bottom: 5 }}
+                                >
+                                  <CartesianGrid
+                                    strokeDasharray="3 3"
+                                    stroke={chartTheme.gridStroke}
+                                    horizontal={true}
+                                    vertical={false}
+                                  />
+                                  <XAxis
+                                    type="number"
+                                    tick={{ fontSize: 12, fill: chartTheme.axisFill }}
+                                    stroke={chartTheme.axisStroke}
+                                    tickFormatter={(value) =>
+                                      value >= 1000 ? `${(value / 1000).toFixed(0)}k` : value
+                                    }
+                                  />
+                                  <YAxis
+                                    type="category"
+                                    dataKey="name"
+                                    tick={{ fontSize: 12, fill: chartTheme.axisFill }}
+                                    stroke={chartTheme.axisStroke}
+                                    width={80}
+                                  />
+                                  <Tooltip
+                                    formatter={(value: number, name: string) => [
+                                      formatCurrency(value),
+                                      name === 'period1'
+                                        ? comparisonData.period1Label
+                                        : comparisonData.period2Label,
+                                    ]}
+                                    labelFormatter={(label) => {
+                                      const item = chartData.find((d) => d.name === label)
+                                      return item?.fullName || label
+                                    }}
+                                    contentStyle={{
+                                      backgroundColor: chartTheme.tooltipBg,
+                                      border: `2px solid ${chartTheme.tooltipBorder}`,
+                                      borderRadius: '12px',
+                                      padding: '12px',
+                                      color: chartTheme.tooltipText,
+                                    }}
+                                  />
+                                  <Bar
+                                    dataKey="period1"
+                                    name="period1"
+                                    fill="#3b82f6"
+                                    radius={[0, 4, 4, 0]}
+                                  />
+                                  <Bar
+                                    dataKey="period2"
+                                    name="period2"
+                                    fill="#8b5cf6"
+                                    radius={[0, 4, 4, 0]}
+                                  />
+                                </BarChart>
+                              </ResponsiveContainer>
+                            </div>
+                            <div className="mt-3 flex items-center justify-center gap-6">
+                              <div className="flex items-center gap-2">
+                                <div className="h-3 w-3 rounded bg-blue-500"></div>
+                                <span className="text-sm text-muted-foreground">
+                                  {comparisonData.period1Label}
+                                </span>
                               </div>
-                              <div
-                                className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-sm ${
-                                  cat.difference > 0
-                                    ? 'bg-red-100 text-red-700'
-                                    : cat.difference < 0
-                                      ? 'bg-green-100 text-green-700'
-                                      : 'bg-gray-100 text-gray-700'
-                                }`}
-                              >
-                                {cat.difference > 0 ? (
-                                  <TrendingUp className="h-3.5 w-3.5" />
-                                ) : cat.difference < 0 ? (
-                                  <TrendingDown className="h-3.5 w-3.5" />
-                                ) : (
-                                  <Minus className="h-3.5 w-3.5" />
-                                )}
-                                <span className="font-semibold">
-                                  {formatPercentChange(cat.percentChange)}
+                              <div className="flex items-center gap-2">
+                                <div className="h-3 w-3 rounded bg-purple-500"></div>
+                                <span className="text-sm text-muted-foreground">
+                                  {comparisonData.period2Label}
                                 </span>
                               </div>
                             </div>
-                          ))}
-                        </div>
-                      </div>
+                          </CardContent>
+                        </Card>
+                      )}
+
+                      {/* Detailed Category Changes */}
+                      <Card className="bg-gray-50 dark:bg-gray-900">
+                        <CardContent className="p-5">
+                          <h3 className="mb-4 text-lg font-semibold text-gray-900 dark:text-gray-100">
+                            Category Changes
+                          </h3>
+                          <div className="space-y-2">
+                            {comparisonData.categoryComparisons.map((cat) => (
+                              <div
+                                key={cat.category}
+                                className="flex items-center justify-between rounded-xl border border-gray-100 bg-white p-3 dark:border-gray-800 dark:bg-gray-950"
+                              >
+                                <div className="flex-1">
+                                  <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                                    {cat.category}
+                                  </p>
+                                  <div className="mt-1 flex items-center gap-3 text-xs text-muted-foreground">
+                                    <span className="font-medium text-blue-600">
+                                      {formatCurrency(cat.period1)}
+                                    </span>
+                                    <span>→</span>
+                                    <span className="font-medium text-purple-600">
+                                      {formatCurrency(cat.period2)}
+                                    </span>
+                                  </div>
+                                </div>
+                                <Badge
+                                  variant="secondary"
+                                  className={`flex items-center gap-1.5 ${
+                                    cat.difference > 0
+                                      ? 'bg-red-100 text-red-700'
+                                      : cat.difference < 0
+                                        ? 'bg-green-100 text-green-700 dark:text-green-300'
+                                        : 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300'
+                                  }`}
+                                >
+                                  {cat.difference > 0 ? (
+                                    <TrendingUp className="h-3.5 w-3.5" />
+                                  ) : cat.difference < 0 ? (
+                                    <TrendingDown className="h-3.5 w-3.5" />
+                                  ) : (
+                                    <Minus className="h-3.5 w-3.5" />
+                                  )}
+                                  <span className="font-semibold">
+                                    {formatPercentChange(cat.percentChange)}
+                                  </span>
+                                </Badge>
+                              </div>
+                            ))}
+                          </div>
+                        </CardContent>
+                      </Card>
                     </>
                   )}
                 </>
@@ -583,7 +601,7 @@ export function ComparisonView({ isOpen, onClose, currentTransactions }: Compari
             </div>
           )}
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   )
 }

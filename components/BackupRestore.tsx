@@ -4,7 +4,6 @@ import { useState, useRef } from 'react'
 import {
   Download,
   Upload,
-  X,
   Shield,
   Lock,
   CheckCircle,
@@ -14,6 +13,17 @@ import {
 } from 'lucide-react'
 import { exportAllData, importAllData, isValidBackupData, type BackupData } from '@/lib/db'
 import { encryptData, decryptData, isValidEncryptedBackup, type EncryptedData } from '@/lib/crypto'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Label } from '@/components/ui/label'
 
 interface PasswordRequirement {
   label: string
@@ -85,14 +95,10 @@ export function BackupRestore({ isOpen, onClose, onRestoreComplete }: BackupRest
     setError(null)
 
     try {
-      // Export all data
       const backupData = await exportAllData()
-
-      // Encrypt with password
       const jsonData = JSON.stringify(backupData)
       const encryptedData = await encryptData(jsonData, password)
 
-      // Create and download file
       const blob = new Blob([JSON.stringify(encryptedData, null, 2)], { type: 'application/json' })
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
@@ -121,7 +127,6 @@ export function BackupRestore({ isOpen, onClose, onRestoreComplete }: BackupRest
     setError(null)
     setImportPreview(null)
 
-    // Try to read and validate the file structure (without decrypting)
     try {
       const text = await file.text()
       const data = JSON.parse(text)
@@ -132,7 +137,6 @@ export function BackupRestore({ isOpen, onClose, onRestoreComplete }: BackupRest
         return
       }
 
-      // We can't preview contents without decrypting, but we can show file info
       setImportPreview({
         date: 'Encrypted',
         analyses: -1,
@@ -158,7 +162,6 @@ export function BackupRestore({ isOpen, onClose, onRestoreComplete }: BackupRest
     setError(null)
 
     try {
-      // Read file
       const text = await importFile.text()
       const encryptedData: EncryptedData = JSON.parse(text)
 
@@ -166,7 +169,6 @@ export function BackupRestore({ isOpen, onClose, onRestoreComplete }: BackupRest
         throw new Error('Invalid backup file format')
       }
 
-      // Decrypt with password
       const decryptedJson = await decryptData(encryptedData, password)
       const backupData: BackupData = JSON.parse(decryptedJson)
 
@@ -174,14 +176,12 @@ export function BackupRestore({ isOpen, onClose, onRestoreComplete }: BackupRest
         throw new Error('Invalid backup data structure')
       }
 
-      // Import data
       const result = await importAllData(backupData)
 
       setSuccess(
         `Restore complete! Imported ${result.analysesCount} analyses, ${result.budgetsCount} budgets${result.hasChartPreferences ? ', and chart preferences' : ''}.`
       )
 
-      // Notify parent to refresh data
       onRestoreComplete()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to restore backup')
@@ -190,46 +190,50 @@ export function BackupRestore({ isOpen, onClose, onRestoreComplete }: BackupRest
     }
   }
 
-  if (!isOpen) return null
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
-      <div className="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl">
+    <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
+      <DialogContent className="max-w-md overflow-hidden p-0">
         {/* Header */}
-        <div className="flex items-center justify-between border-b bg-gradient-to-r from-slate-700 to-slate-800 p-6">
+        <DialogHeader className="border-b bg-gradient-to-r from-slate-700 to-slate-800 p-6">
           <div className="flex items-center gap-3">
             <div className="rounded-xl bg-white/20 p-2">
               <Shield className="h-6 w-6 text-white" />
             </div>
             <div>
-              <h2 className="text-xl font-bold text-white">Backup & Restore</h2>
-              <p className="text-sm text-slate-300">Encrypted data protection</p>
+              <DialogTitle className="text-xl font-bold text-white">Backup & Restore</DialogTitle>
+              <DialogDescription className="text-sm text-slate-300">
+                Encrypted data protection
+              </DialogDescription>
             </div>
           </div>
-          <button
-            onClick={handleClose}
-            className="rounded-xl p-2 transition-colors hover:bg-white/20"
-          >
-            <X className="h-6 w-6 text-white" />
-          </button>
-        </div>
+        </DialogHeader>
 
         {/* Content */}
         <div className="p-6">
           {/* Success Message */}
           {success && (
-            <div className="mb-4 flex items-start gap-3 rounded-xl border border-green-200 bg-green-50 p-4">
-              <CheckCircle className="mt-0.5 h-5 w-5 flex-shrink-0 text-green-600" />
-              <p className="text-sm text-green-700">{success}</p>
-            </div>
+            <Alert className="mb-4 border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950">
+              <CheckCircle className="h-4 w-4 text-green-600" />
+              <AlertDescription className="text-green-700">{success}</AlertDescription>
+            </Alert>
           )}
 
           {/* Error Message */}
           {error && (
-            <div className="mb-4 flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4">
-              <AlertTriangle className="mt-0.5 h-5 w-5 flex-shrink-0 text-red-600" />
-              <p className="text-sm text-red-700">{error}</p>
-            </div>
+            <Alert
+              variant="destructive"
+              className="mb-4"
+              id={
+                step === 'export'
+                  ? 'export-password-error'
+                  : step === 'import'
+                    ? 'import-password-error'
+                    : undefined
+              }
+            >
+              <AlertTriangle className="h-4 w-4" />
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
           )}
 
           {/* Menu */}
@@ -237,65 +241,73 @@ export function BackupRestore({ isOpen, onClose, onRestoreComplete }: BackupRest
             <div className="space-y-3">
               <button
                 onClick={() => setStep('export')}
-                className="flex w-full items-center gap-4 rounded-xl border-2 border-blue-200 bg-blue-50 p-4 text-left transition-colors hover:bg-blue-100"
+                className="flex w-full items-center gap-4 rounded-xl border-2 border-blue-200 bg-blue-50 p-4 text-left transition-colors hover:bg-blue-100 dark:border-blue-800 dark:bg-blue-950 dark:hover:bg-blue-900"
               >
                 <div className="rounded-xl bg-blue-500 p-3">
                   <Download className="h-6 w-6 text-white" />
                 </div>
                 <div>
-                  <p className="font-semibold text-gray-900">Create Backup</p>
-                  <p className="text-sm text-gray-600">Export all data with password protection</p>
+                  <p className="font-semibold text-gray-900 dark:text-gray-100">Create Backup</p>
+                  <p className="text-sm text-muted-foreground">
+                    Export all data with password protection
+                  </p>
                 </div>
               </button>
 
               <button
                 onClick={() => setStep('import')}
-                className="flex w-full items-center gap-4 rounded-xl border-2 border-purple-200 bg-purple-50 p-4 text-left transition-colors hover:bg-purple-100"
+                className="flex w-full items-center gap-4 rounded-xl border-2 border-purple-200 bg-purple-50 p-4 text-left transition-colors hover:bg-purple-100 dark:border-purple-800 dark:bg-purple-950 dark:hover:bg-purple-900"
               >
                 <div className="rounded-xl bg-purple-500 p-3">
                   <Upload className="h-6 w-6 text-white" />
                 </div>
                 <div>
-                  <p className="font-semibold text-gray-900">Restore Backup</p>
-                  <p className="text-sm text-gray-600">Import from encrypted backup file</p>
+                  <p className="font-semibold text-gray-900 dark:text-gray-100">Restore Backup</p>
+                  <p className="text-sm text-muted-foreground">Import from encrypted backup file</p>
                 </div>
               </button>
 
-              <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3">
-                <p className="text-xs text-amber-700">
-                  <Lock className="mr-1 inline h-3 w-3" />
+              <Alert className="mt-4 border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950">
+                <Lock className="h-4 w-4 text-amber-600" />
+                <AlertDescription className="text-xs text-amber-700">
                   Backups are encrypted with AES-256. Your password is never stored.
-                </p>
-              </div>
+                </AlertDescription>
+              </Alert>
             </div>
           )}
 
           {/* Export Form */}
           {step === 'export' && !success && (
             <div className="space-y-4">
-              <button
+              <Button
+                variant="link"
                 onClick={() => setStep('menu')}
-                className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700"
+                className="h-auto p-0 text-sm text-muted-foreground"
               >
                 &larr; Back
-              </button>
+              </Button>
 
               <div>
-                <label className="mb-2 block text-sm font-semibold text-gray-700">
+                <Label htmlFor="export-password" className="mb-2 block text-sm font-semibold">
                   Create a password for your backup
-                </label>
+                </Label>
                 <div className="relative">
-                  <input
+                  <Input
+                    id="export-password"
                     type={showPassword ? 'text' : 'password'}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="Enter password"
-                    className="w-full rounded-xl border-2 border-gray-200 p-3 pr-10 focus:border-blue-500 focus:outline-none"
+                    className="pr-10"
+                    aria-describedby={
+                      error && step === 'export' ? 'export-password-error' : undefined
+                    }
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300"
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
                   >
                     {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                   </button>
@@ -309,7 +321,11 @@ export function BackupRestore({ isOpen, onClose, onRestoreComplete }: BackupRest
                         ) : (
                           <div className="h-3 w-3 rounded-full border border-gray-300" />
                         )}
-                        <span className={req.test(password) ? 'text-green-600' : 'text-gray-500'}>
+                        <span
+                          className={
+                            req.test(password) ? 'text-green-600' : 'text-muted-foreground'
+                          }
+                        >
                           {req.label}
                         </span>
                       </div>
@@ -319,59 +335,58 @@ export function BackupRestore({ isOpen, onClose, onRestoreComplete }: BackupRest
               </div>
 
               <div>
-                <label className="mb-2 block text-sm font-semibold text-gray-700">
+                <Label htmlFor="confirm-password" className="mb-2 block text-sm font-semibold">
                   Confirm password
-                </label>
-                <input
+                </Label>
+                <Input
+                  id="confirm-password"
                   type={showPassword ? 'text' : 'password'}
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   placeholder="Confirm password"
-                  className="w-full rounded-xl border-2 border-gray-200 p-3 focus:border-blue-500 focus:outline-none"
                 />
               </div>
 
-              <div className="rounded-xl border border-amber-200 bg-amber-50 p-3">
-                <p className="text-xs text-amber-700">
-                  <AlertTriangle className="mr-1 inline h-3 w-3" />
+              <Alert className="border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950">
+                <AlertTriangle className="h-4 w-4 text-amber-600" />
+                <AlertDescription className="text-xs text-amber-700">
                   Remember this password! Without it, you cannot restore your backup.
-                </p>
-              </div>
+                </AlertDescription>
+              </Alert>
 
-              <button
+              <Button
                 onClick={handleExport}
                 disabled={loading || !validatePassword(password) || password !== confirmPassword}
-                className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 py-3 font-semibold text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+                className="w-full"
               >
                 {loading ? (
                   <>
-                    <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                    <div className="mr-2 h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
                     Creating Backup...
                   </>
                 ) : (
                   <>
-                    <Download className="h-5 w-5" />
+                    <Download className="mr-2 h-5 w-5" />
                     Create Encrypted Backup
                   </>
                 )}
-              </button>
+              </Button>
             </div>
           )}
 
           {/* Import Form */}
           {step === 'import' && !success && (
             <div className="space-y-4">
-              <button
+              <Button
+                variant="link"
                 onClick={() => setStep('menu')}
-                className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700"
+                className="h-auto p-0 text-sm text-muted-foreground"
               >
                 &larr; Back
-              </button>
+              </Button>
 
               <div>
-                <label className="mb-2 block text-sm font-semibold text-gray-700">
-                  Select backup file
-                </label>
+                <Label className="mb-2 block text-sm font-semibold">Select backup file</Label>
                 <input
                   ref={fileInputRef}
                   type="file"
@@ -381,7 +396,7 @@ export function BackupRestore({ isOpen, onClose, onRestoreComplete }: BackupRest
                 />
                 <button
                   onClick={() => fileInputRef.current?.click()}
-                  className="w-full rounded-xl border-2 border-dashed border-gray-300 p-4 transition-colors hover:border-purple-400 hover:bg-purple-50"
+                  className="w-full rounded-xl border-2 border-dashed border-gray-300 p-4 transition-colors hover:border-purple-400 hover:bg-purple-50 dark:border-gray-600 dark:hover:bg-purple-950"
                 >
                   {importFile ? (
                     <div className="flex items-center justify-center gap-2 text-purple-700">
@@ -389,7 +404,7 @@ export function BackupRestore({ isOpen, onClose, onRestoreComplete }: BackupRest
                       <span className="font-medium">{importFile.name}</span>
                     </div>
                   ) : (
-                    <div className="text-gray-500">
+                    <div className="text-muted-foreground">
                       <Upload className="mx-auto mb-2 h-8 w-8" />
                       <p className="font-medium">Click to select backup file</p>
                       <p className="text-xs">.encrypted.json</p>
@@ -400,21 +415,26 @@ export function BackupRestore({ isOpen, onClose, onRestoreComplete }: BackupRest
 
               {importFile && (
                 <div>
-                  <label className="mb-2 block text-sm font-semibold text-gray-700">
+                  <Label htmlFor="import-password" className="mb-2 block text-sm font-semibold">
                     Enter backup password
-                  </label>
+                  </Label>
                   <div className="relative">
-                    <input
+                    <Input
+                      id="import-password"
                       type={showPassword ? 'text' : 'password'}
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       placeholder="Enter backup password"
-                      className="w-full rounded-xl border-2 border-gray-200 p-3 pr-10 focus:border-purple-500 focus:outline-none"
+                      className="pr-10"
+                      aria-describedby={
+                        error && step === 'import' ? 'import-password-error' : undefined
+                      }
                     />
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300"
+                      aria-label={showPassword ? 'Hide password' : 'Show password'}
                     >
                       {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                     </button>
@@ -422,44 +442,41 @@ export function BackupRestore({ isOpen, onClose, onRestoreComplete }: BackupRest
                 </div>
               )}
 
-              <div className="rounded-xl border border-red-200 bg-red-50 p-3">
-                <p className="text-xs text-red-700">
-                  <AlertTriangle className="mr-1 inline h-3 w-3" />
+              <Alert variant="destructive">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertDescription className="text-xs">
                   Warning: Restoring will replace all existing data!
-                </p>
-              </div>
+                </AlertDescription>
+              </Alert>
 
-              <button
+              <Button
                 onClick={handleImport}
                 disabled={loading || !importFile || !password}
-                className="flex w-full items-center justify-center gap-2 rounded-xl bg-purple-600 py-3 font-semibold text-white transition-colors hover:bg-purple-700 disabled:cursor-not-allowed disabled:opacity-50"
+                className="w-full bg-purple-600 hover:bg-purple-700"
               >
                 {loading ? (
                   <>
-                    <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                    <div className="mr-2 h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
                     Restoring...
                   </>
                 ) : (
                   <>
-                    <Upload className="h-5 w-5" />
+                    <Upload className="mr-2 h-5 w-5" />
                     Restore Backup
                   </>
                 )}
-              </button>
+              </Button>
             </div>
           )}
 
           {/* Success state - show close button */}
           {success && (
-            <button
-              onClick={handleClose}
-              className="w-full rounded-xl bg-gray-200 py-3 font-semibold text-gray-700 transition-colors hover:bg-gray-300"
-            >
+            <Button variant="secondary" onClick={handleClose} className="w-full">
               Close
-            </button>
+            </Button>
           )}
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   )
 }

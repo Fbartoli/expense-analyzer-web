@@ -104,6 +104,10 @@ const SECTOR_CATEGORY_MAP: { [key: string]: string } = {
 }
 
 export function categorizeTransaction(transaction: Transaction | TransactionWithCategory): string {
+  if (!transaction) {
+    return 'Other'
+  }
+
   // Check for manual category override first
   if ('manualCategory' in transaction && transaction.manualCategory) {
     return transaction.manualCategory
@@ -215,33 +219,192 @@ export function categorizeTransaction(transaction: Transaction | TransactionWith
     return 'Insurance & Financial'
   }
 
-  // Specific booking text patterns (only as fallback)
-  if (text.includes('swisscom') || text.includes('sunrise') || text.includes('salt')) {
+  // --- Booking text keyword matching ---
+  // This is the primary categorization path for bank statement transactions
+  // where sector data is unavailable.
+
+  // Groceries — Swiss supermarket chains and grocery stores
+  if (
+    text.includes('migros') ||
+    text.includes('coop') ||
+    text.includes('aldi') ||
+    text.includes('lidl') ||
+    text.includes('denner') ||
+    text.includes('spar') ||
+    text.includes('volg') ||
+    text.includes('manor food') ||
+    text.includes('grocery') ||
+    text.includes('supermarket')
+  ) {
+    return 'Groceries'
+  }
+
+  // Restaurants & Dining
+  if (
+    text.includes('restaurant') ||
+    text.includes('pizzeria') ||
+    text.includes('mcdonald') ||
+    text.includes('burger king') ||
+    text.includes('starbucks') ||
+    text.includes('cafe') ||
+    text.includes('café') ||
+    text.includes('coffee') ||
+    text.includes('bakery') ||
+    text.includes('bäckerei') ||
+    text.includes('backerei') ||
+    text.includes('conditorei') ||
+    text.includes('confiserie') ||
+    text.includes('kebab') ||
+    text.includes('sushi') ||
+    text.includes('bistro') ||
+    text.includes('trattoria') ||
+    text.includes('osteria') ||
+    text.includes('brasserie') ||
+    text.includes('restorant') ||
+    text.includes('joe the juice') ||
+    text.includes('juice') ||
+    text.includes('panada') ||
+    text.includes('sv (schweiz)') ||
+    text.includes('selecta') ||
+    text.includes('uber eats') ||
+    text.includes('ubereats') ||
+    text.includes('deliveroo') ||
+    text.includes('just eat') ||
+    text.includes('doordash') ||
+    text.includes('eat.ch')
+  ) {
+    return 'Restaurants & Dining'
+  }
+
+  // Transportation — Swiss public transit and ride services
+  if (
+    text.includes('sbb') ||
+    text.includes('cff') ||
+    text.includes('ffs') ||
+    text.includes('zvv') ||
+    text.includes('bvb') ||
+    text.includes('vbz') ||
+    text.includes('tpg') ||
+    text.includes('bernmobil') ||
+    text.includes('postauto') ||
+    text.includes('flixbus') ||
+    text.includes('uber') ||
+    text.includes('taxi') ||
+    text.includes('bolt') ||
+    text.includes('parking') ||
+    text.includes('parkhaus') ||
+    text.includes('tankstelle') ||
+    text.includes('gas station') ||
+    text.includes('shell') ||
+    text.includes('bp ')
+  ) {
+    return 'Transportation'
+  }
+
+  // Travel & Accommodation
+  if (
+    text.includes('hotel') ||
+    text.includes('hostel') ||
+    text.includes('airbnb') ||
+    text.includes('booking.com') ||
+    text.includes('hotels.com') ||
+    text.includes('expedia') ||
+    text.includes('airline') ||
+    text.includes('swiss air') ||
+    text.includes('easyjet') ||
+    text.includes('ryanair') ||
+    text.includes('lufthansa') ||
+    text.includes('duty free')
+  ) {
+    return 'Travel & Accommodation'
+  }
+
+  // Housing — rent, mortgage, property
+  if (
+    text.includes('immobilien') ||
+    text.includes('miete') ||
+    text.includes('rent') ||
+    text.includes('wohnung') ||
+    text.includes('hypothek') ||
+    text.includes('mortgage') ||
+    text.includes('standing order') ||
+    text.includes('merbag')
+  ) {
+    return 'Housing'
+  }
+
+  // Insurance & Financial
+  if (
+    text.includes('sanitas') ||
+    text.includes('css') ||
+    text.includes('swica') ||
+    text.includes('helsana') ||
+    text.includes('concordia') ||
+    text.includes('assura') ||
+    text.includes('groupe mutuel') ||
+    text.includes('visana') ||
+    text.includes('atupri') ||
+    text.includes('insurance') ||
+    text.includes('versicherung') ||
+    text.includes('grundversicherung') ||
+    text.includes('ubs switzerland') ||
+    text.includes('card center') ||
+    text.includes('revolut') ||
+    text.includes('wise.com') ||
+    text.includes('bank') ||
+    text.includes('balance closing') ||
+    text.includes('service prices')
+  ) {
+    return 'Insurance & Financial'
+  }
+
+  // Utilities & Telecom
+  if (
+    text.includes('swisscom') ||
+    text.includes('sunrise') ||
+    text.includes('salt') ||
+    text.includes('yallo') ||
+    text.includes('wingo') ||
+    text.includes('ewz') ||
+    text.includes('ewb') ||
+    text.includes('energie') ||
+    text.includes('elektrizität') ||
+    text.includes('strom') ||
+    text.includes('gas ')
+  ) {
     return 'Utilities & Telecom'
   }
 
-  // Entertainment keywords (check before Digital Services)
+  // Fitness & Sports
+  if (
+    text.includes('gym') ||
+    text.includes('fitness') ||
+    text.includes('movemi') ||
+    text.includes('activ fitness') ||
+    text.includes('update fitness') ||
+    text.includes('crossfit') ||
+    text.includes('yoga')
+  ) {
+    return 'Fitness & Sports'
+  }
+
+  // Entertainment & Leisure
   if (
     text.includes('cinema') ||
+    text.includes('kino') ||
     text.includes('movie') ||
     text.includes('theatre') ||
     text.includes('theater') ||
     text.includes('concert') ||
     text.includes('festival') ||
-    text.includes('event') ||
-    text.includes('ticket') ||
-    text.includes('show') ||
+    text.includes('spa') ||
+    text.includes('aqua') ||
+    text.includes('eisweg') ||
     text.includes('game store') ||
     text.includes('steam') ||
     text.includes('playstation') ||
     text.includes('xbox') ||
-    text.includes('nintendo')
-  ) {
-    return 'Entertainment'
-  }
-
-  // Digital Services/Subscriptions
-  if (
+    text.includes('nintendo') ||
     text.includes('spotify') ||
     text.includes('netflix') ||
     text.includes('youtube premium') ||
@@ -255,8 +418,39 @@ export function categorizeTransaction(transaction: Transaction | TransactionWith
     return 'Entertainment'
   }
 
-  if (text.includes('gym') || text.includes('fitness')) {
-    return 'Fitness & Sports'
+  // Shopping — bookstores, kiosks, retail
+  if (
+    text.includes('kiosk') ||
+    text.includes('orell füssli') ||
+    text.includes('orell fussli') ||
+    text.includes('manor') ||
+    text.includes('globus') ||
+    text.includes('ikea') ||
+    text.includes('h&m') ||
+    text.includes('zara') ||
+    text.includes('media markt') ||
+    text.includes('interdiscount') ||
+    text.includes('digitec') ||
+    text.includes('galaxus') ||
+    text.includes('book') ||
+    text.includes('shop')
+  ) {
+    return 'Shopping'
+  }
+
+  // Health & Beauty
+  if (
+    text.includes('apotheke') ||
+    text.includes('pharmacy') ||
+    text.includes('drogerie') ||
+    text.includes('arzt') ||
+    text.includes('doctor') ||
+    text.includes('zahnarzt') ||
+    text.includes('dentist') ||
+    text.includes('optik') ||
+    text.includes('optician')
+  ) {
+    return 'Health & Beauty'
   }
 
   // QR payments and generic transactions

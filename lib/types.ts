@@ -64,3 +64,32 @@ export interface BudgetWithSpending {
   percentUsed: number
   status: BudgetStatus
 }
+
+// Household member types
+export interface HouseholdMember {
+  id?: number
+  name: string
+  cardNumbers: string[]
+  color: string
+}
+
+export interface MemberSummary {
+  memberName: string
+  total: number
+  count: number
+  percentage: number
+  color: string
+  transactions: Transaction[]
+}
+
+export interface ManualRecurringTransaction {
+  id?: number
+  fingerprint: string
+  merchantName: string
+  bookingText: string
+  category: string
+  frequency: 'weekly' | 'monthly' | 'quarterly'
+  amount: number
+  currency: string
+  createdDate: Date
+}

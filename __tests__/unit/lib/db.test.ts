@@ -16,6 +16,13 @@ import {
   saveChartPreferences,
   getChartPreferences,
   clearChartPreferences,
+  saveHouseholdMember,
+  getAllHouseholdMembers,
+  updateHouseholdMember,
+  deleteHouseholdMember,
+  saveManualRecurring,
+  getAllManualRecurring,
+  deleteManualRecurring,
   exportAllData,
   importAllData,
   isValidBackupData,
@@ -29,12 +36,16 @@ describe('db', () => {
     await db.analyses.clear()
     await db.budgets.clear()
     await db.chartPreferences.clear()
+    await db.householdMembers.clear()
+    await db.manualRecurring.clear()
   })
 
   afterEach(async () => {
     await db.analyses.clear()
     await db.budgets.clear()
     await db.chartPreferences.clear()
+    await db.householdMembers.clear()
+    await db.manualRecurring.clear()
   })
 
   describe('Analysis CRUD', () => {
@@ -222,6 +233,116 @@ describe('db', () => {
     })
   })
 
+  describe('Household Members CRUD', () => {
+    it('should save and retrieve a household member', async () => {
+      const id = await saveHouseholdMember({
+        name: 'Alice',
+        cardNumbers: ['19950466'],
+        color: '#3b82f6',
+      })
+      expect(id).toBeDefined()
+
+      const members = await getAllHouseholdMembers()
+      expect(members).toHaveLength(1)
+      expect(members[0].name).toBe('Alice')
+      expect(members[0].cardNumbers).toEqual(['19950466'])
+      expect(members[0].color).toBe('#3b82f6')
+    })
+
+    it('should update a household member', async () => {
+      const id = await saveHouseholdMember({
+        name: 'Alice',
+        cardNumbers: ['19950466'],
+        color: '#3b82f6',
+      })
+
+      await updateHouseholdMember(id, { name: 'Alice B.', cardNumbers: ['19950466', '19950467'] })
+
+      const members = await getAllHouseholdMembers()
+      expect(members[0].name).toBe('Alice B.')
+      expect(members[0].cardNumbers).toEqual(['19950466', '19950467'])
+    })
+
+    it('should delete a household member', async () => {
+      const id = await saveHouseholdMember({
+        name: 'Alice',
+        cardNumbers: ['19950466'],
+        color: '#3b82f6',
+      })
+
+      await deleteHouseholdMember(id)
+
+      const members = await getAllHouseholdMembers()
+      expect(members).toHaveLength(0)
+    })
+
+    it('should support multiple members', async () => {
+      await saveHouseholdMember({ name: 'Alice', cardNumbers: ['19950466'], color: '#3b82f6' })
+      await saveHouseholdMember({ name: 'Bob', cardNumbers: ['19950463'], color: '#8b5cf6' })
+
+      const members = await getAllHouseholdMembers()
+      expect(members).toHaveLength(2)
+    })
+  })
+
+  describe('Manual Recurring CRUD', () => {
+    const entry = {
+      fingerprint: 'NETFLIX|2024-06-15T00:00:00.000Z|12.99',
+      merchantName: 'netflix',
+      bookingText: 'NETFLIX',
+      category: 'Entertainment',
+      frequency: 'monthly' as const,
+      amount: 12.99,
+      currency: 'CHF',
+      createdDate: new Date(),
+    }
+
+    it('should save and retrieve a manual recurring entry', async () => {
+      const id = await saveManualRecurring(entry)
+      expect(id).toBeDefined()
+
+      const all = await getAllManualRecurring()
+      expect(all).toHaveLength(1)
+      expect(all[0].merchantName).toBe('netflix')
+      expect(all[0].fingerprint).toBe(entry.fingerprint)
+    })
+
+    it('should upsert on duplicate fingerprint', async () => {
+      const id1 = await saveManualRecurring(entry)
+      const id2 = await saveManualRecurring({ ...entry, amount: 15.99 })
+
+      expect(id1).toBe(id2)
+      const all = await getAllManualRecurring()
+      expect(all).toHaveLength(1)
+      expect(all[0].amount).toBe(15.99)
+    })
+
+    it('should return all entries', async () => {
+      await saveManualRecurring(entry)
+      await saveManualRecurring({
+        fingerprint: 'SPOTIFY|2024-06-15T00:00:00.000Z|9.99',
+        merchantName: 'spotify',
+        bookingText: 'SPOTIFY',
+        category: 'Entertainment',
+        frequency: 'monthly' as const,
+        amount: 9.99,
+        currency: 'CHF',
+        createdDate: new Date(),
+      })
+
+      const all = await getAllManualRecurring()
+      expect(all).toHaveLength(2)
+    })
+
+    it('should delete by id', async () => {
+      const id = await saveManualRecurring(entry)
+      await deleteManualRecurring(id)
+
+      const all = await getAllManualRecurring()
+      expect(all).toHaveLength(0)
+    })
+  })
+
   describe('Backup/Restore', () => {
     it('should export all data', async () => {
       await saveAnalysis('test.csv', [createMockTransaction()], createMockReport())
@@ -231,14 +352,35 @@ describe('db', () => {
         excludedCategories: [],
         showFilterPanel: false,
       })
+      await saveHouseholdMember({ name: 'Alice', cardNumbers: ['19950466'], color: '#3b82f6' })
 
       const backup = await exportAllData()
 
-      expect(backup.version).toBe(1)
+      expect(backup.version).toBe(4)
       expect(backup.exportDate).toBeDefined()
       expect(backup.analyses).toHaveLength(1)
       expect(backup.budgets).toHaveLength(1)
       expect(backup.chartPreferences).not.toBeNull()
+      expect(backup.dashboardLayout).toBeNull()
+      expect(backup.householdMembers).toHaveLength(1)
+      expect(backup.householdMembers![0].name).toBe('Alice')
+    })
+
+    it('should export manual recurring data', async () => {
+      await saveManualRecurring({
+        fingerprint: 'NETFLIX|2024-06-15T00:00:00.000Z|12.99',
+        merchantName: 'netflix',
+        bookingText: 'NETFLIX',
+        category: 'Entertainment',
+        frequency: 'monthly',
+        amount: 12.99,
+        currency: 'CHF',
+        createdDate: new Date(),
+      })
+
+      const backup = await exportAllData()
+      expect(backup.manualRecurring).toHaveLength(1)
+      expect(backup.manualRecurring![0].merchantName).toBe('netflix')
     })
 
     it('should export empty data when no records', async () => {
@@ -280,6 +422,7 @@ describe('db', () => {
           excludedCategories: ['Other'],
           showFilterPanel: true,
         },
+        dashboardLayout: null,
       }
 
       const result = await importAllData(backup)
@@ -320,6 +463,7 @@ describe('db', () => {
         ],
         budgets: [],
         chartPreferences: null,
+        dashboardLayout: null,
       }
 
       // Simulate JSON serialization (which converts Dates to strings)
@@ -338,6 +482,7 @@ describe('db', () => {
         analyses: [],
         budgets: [],
         chartPreferences: null,
+        dashboardLayout: null,
       }
 
       await expect(importAllData(backup)).rejects.toThrow('Unsupported backup version')
@@ -350,6 +495,7 @@ describe('db', () => {
         analyses: [],
         budgets: [],
         chartPreferences: null,
+        dashboardLayout: null,
       }
 
       const result = await importAllData(backup)
@@ -357,6 +503,89 @@ describe('db', () => {
       expect(result.analysesCount).toBe(0)
       expect(result.budgetsCount).toBe(0)
       expect(result.hasChartPreferences).toBe(false)
+      expect(result.householdMembersCount).toBe(0)
+    })
+
+    it('should import household members from v3 backup', async () => {
+      const backup: BackupData = {
+        version: 3,
+        exportDate: new Date().toISOString(),
+        analyses: [],
+        budgets: [],
+        chartPreferences: null,
+        dashboardLayout: null,
+        householdMembers: [
+          { id: 1, name: 'Alice', cardNumbers: ['19950466'], color: '#3b82f6' },
+          { id: 2, name: 'Bob', cardNumbers: ['19950463'], color: '#8b5cf6' },
+        ],
+      }
+
+      const result = await importAllData(backup)
+
+      expect(result.householdMembersCount).toBe(2)
+      const members = await getAllHouseholdMembers()
+      expect(members).toHaveLength(2)
+      expect(members.map((m) => m.name).sort()).toEqual(['Alice', 'Bob'])
+    })
+
+    it('should be backward compatible with v2 backup (no household members)', async () => {
+      const backup: BackupData = {
+        version: 2,
+        exportDate: new Date().toISOString(),
+        analyses: [],
+        budgets: [],
+        chartPreferences: null,
+        dashboardLayout: null,
+      }
+
+      const result = await importAllData(backup)
+      expect(result.householdMembersCount).toBe(0)
+    })
+
+    it('should be backward compatible with v3 backup (no manualRecurring)', async () => {
+      const backup: BackupData = {
+        version: 3,
+        exportDate: new Date().toISOString(),
+        analyses: [],
+        budgets: [],
+        chartPreferences: null,
+        dashboardLayout: null,
+        householdMembers: [],
+      }
+
+      const result = await importAllData(backup)
+      expect(result.manualRecurringCount).toBe(0)
+    })
+
+    it('should import manual recurring from v4 backup', async () => {
+      const backup: BackupData = {
+        version: 4,
+        exportDate: new Date().toISOString(),
+        analyses: [],
+        budgets: [],
+        chartPreferences: null,
+        dashboardLayout: null,
+        householdMembers: [],
+        manualRecurring: [
+          {
+            id: 1,
+            fingerprint: 'NETFLIX|2024-06-15T00:00:00.000Z|12.99',
+            merchantName: 'netflix',
+            bookingText: 'NETFLIX',
+            category: 'Entertainment',
+            frequency: 'monthly',
+            amount: 12.99,
+            currency: 'CHF',
+            createdDate: new Date(),
+          },
+        ],
+      }
+
+      const result = await importAllData(backup)
+      expect(result.manualRecurringCount).toBe(1)
+      const all = await getAllManualRecurring()
+      expect(all).toHaveLength(1)
+      expect(all[0].merchantName).toBe('netflix')
     })
   })
 
@@ -368,9 +597,39 @@ describe('db', () => {
         analyses: [],
         budgets: [],
         chartPreferences: null,
+        dashboardLayout: null,
       }
 
       expect(isValidBackupData(valid)).toBe(true)
+    })
+
+    it('should return true for version 3 backup', () => {
+      expect(
+        isValidBackupData({
+          version: 3,
+          exportDate: '2024-01-01T00:00:00.000Z',
+          analyses: [],
+          budgets: [],
+          chartPreferences: null,
+          dashboardLayout: null,
+          householdMembers: [],
+        })
+      ).toBe(true)
+    })
+
+    it('should return true for version 4 backup', () => {
+      expect(
+        isValidBackupData({
+          version: 4,
+          exportDate: '2024-01-01T00:00:00.000Z',
+          analyses: [],
+          budgets: [],
+          chartPreferences: null,
+          dashboardLayout: null,
+          householdMembers: [],
+          manualRecurring: [],
+        })
+      ).toBe(true)
     })
 
     it('should return false for null', () => {
