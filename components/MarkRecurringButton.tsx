@@ -58,7 +58,7 @@ export function MarkRecurringButton({
   function handleConfirm() {
     const fingerprint = transactionFingerprint(transaction)
     const merchantName = normalizeMerchantName(transaction.bookingText)
-    const category = categorizeTransaction(transaction)
+    const category = transaction.category || categorizeTransaction(transaction)
     const parsedAmount = parseFloat(amount) || transaction.debit || 0
 
     onMarkRecurring({

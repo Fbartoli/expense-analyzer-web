@@ -1,6 +1,8 @@
 export type WidgetId =
   | 'expense-summary'
   | 'budget-overview'
+  | 'net-worth-summary'
+  | 'net-worth-trend'
   | 'category-breakdown'
   | 'monthly-trends'
   | 'spending-forecast'
@@ -23,6 +25,8 @@ export interface DashboardLayout {
 export const DEFAULT_WIDGETS: WidgetConfig[] = [
   { id: 'expense-summary', label: 'Financial Overview', visible: true, size: 'half' },
   { id: 'budget-overview', label: 'Monthly Budgets', visible: true, size: 'half' },
+  { id: 'net-worth-summary', label: 'Net Worth', visible: true, size: 'half' },
+  { id: 'net-worth-trend', label: 'Net Worth Trend', visible: true, size: 'full' },
   { id: 'category-breakdown', label: 'Spending by Category', visible: true, size: 'full' },
   { id: 'monthly-trends', label: 'Spending Trends', visible: true, size: 'full' },
   { id: 'spending-forecast', label: 'Spending Forecast', visible: true, size: 'full' },
@@ -34,6 +38,8 @@ export const DEFAULT_WIDGETS: WidgetConfig[] = [
 export const DEFAULT_SIZES: Record<WidgetId, 'full' | 'half'> = {
   'expense-summary': 'half',
   'budget-overview': 'half',
+  'net-worth-summary': 'half',
+  'net-worth-trend': 'full',
   'category-breakdown': 'full',
   'monthly-trends': 'full',
   'spending-forecast': 'full',

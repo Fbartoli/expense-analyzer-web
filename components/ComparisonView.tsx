@@ -24,6 +24,7 @@ interface ComparisonViewProps {
   isOpen: boolean
   onClose: () => void
   currentTransactions?: Transaction[]
+  resolveCategory?: (raw: string) => string
 }
 
 type PeriodType = 'monthly' | 'weekly'
@@ -43,7 +44,12 @@ interface CategoryComparison {
   percentChange: number
 }
 
-export function ComparisonView({ isOpen, onClose, currentTransactions }: ComparisonViewProps) {
+export function ComparisonView({
+  isOpen,
+  onClose,
+  currentTransactions,
+  resolveCategory,
+}: ComparisonViewProps) {
   const chartTheme = useChartTheme()
   const [analyses, setAnalyses] = useState<SavedAnalysis[]>([])
   const [selectedAnalysis, setSelectedAnalysis] = useState<SavedAnalysis | null>(null)
@@ -183,12 +189,14 @@ export function ComparisonView({ isOpen, onClose, currentTransactions }: Compari
     const categoryMap2 = new Map<string, number>()
 
     transactions1.forEach((t) => {
-      const cat = categorizeTransaction(t)
+      const rawCat = t.category || categorizeTransaction(t)
+      const cat = resolveCategory?.(rawCat) ?? rawCat
       categoryMap1.set(cat, (categoryMap1.get(cat) || 0) + (t.debit || 0))
     })
 
     transactions2.forEach((t) => {
-      const cat = categorizeTransaction(t)
+      const rawCat = t.category || categorizeTransaction(t)
+      const cat = resolveCategory?.(rawCat) ?? rawCat
       categoryMap2.set(cat, (categoryMap2.get(cat) || 0) + (t.debit || 0))
     })
 
@@ -223,7 +231,13 @@ export function ComparisonView({ isOpen, onClose, currentTransactions }: Compari
       transactionCount2: transactions2.length,
       categoryComparisons,
     }
-  }, [selectedPeriod1, selectedPeriod2, availablePeriods, getTransactionsForPeriod])
+  }, [
+    selectedPeriod1,
+    selectedPeriod2,
+    availablePeriods,
+    getTransactionsForPeriod,
+    resolveCategory,
+  ])
 
   const chartData = useMemo(() => {
     if (!comparisonData) return []

@@ -176,7 +176,8 @@ export function detectRecurringTransactions(
     if (!frequency) continue
 
     // Category from most recent transaction
-    const category = categorizeTransaction(sorted[sorted.length - 1])
+    const lastTx = sorted[sorted.length - 1]
+    const category = lastTx.category || categorizeTransaction(lastTx)
 
     // Amounts
     const amounts = sorted.map((t) => t.debit || 0)

@@ -36,21 +36,24 @@ interface BankStatementRow {
 
 type CSVFormat = 'credit-card' | 'bank-statement'
 
-function parseDateDotFormat(dateStr: string): Date {
+type DateFormat = 'dot' | 'iso'
+
+function parseDate(dateStr: string, fmt: DateFormat): Date {
   if (!dateStr || dateStr.trim() === '') {
     console.warn('Empty date string, using current date as fallback')
     return new Date()
   }
 
-  const parts = dateStr.trim().split('.')
+  const delimiter = fmt === 'dot' ? '.' : '-'
+  const parts = dateStr.trim().split(delimiter)
   if (parts.length !== 3) {
     console.warn('Invalid date format:', dateStr)
     return new Date()
   }
 
-  const day = parseInt(parts[0], 10)
-  const month = parseInt(parts[1], 10)
-  const year = parseInt(parts[2], 10)
+  // dot = DD.MM.YYYY, iso = YYYY-MM-DD
+  const [a, b, c] = parts.map((p) => parseInt(p, 10))
+  const [year, month, day] = fmt === 'dot' ? [c, b, a] : [a, b, c]
 
   if (isNaN(day) || isNaN(month) || isNaN(year)) {
     console.warn('Invalid date components:', dateStr)
@@ -58,38 +61,6 @@ function parseDateDotFormat(dateStr: string): Date {
   }
 
   const date = new Date(year, month - 1, day)
-
-  if (isNaN(date.getTime())) {
-    console.warn('Invalid date created:', dateStr)
-    return new Date()
-  }
-
-  return date
-}
-
-function parseDateISOFormat(dateStr: string): Date {
-  if (!dateStr || dateStr.trim() === '') {
-    console.warn('Empty date string, using current date as fallback')
-    return new Date()
-  }
-
-  const parts = dateStr.trim().split('-')
-  if (parts.length !== 3) {
-    console.warn('Invalid date format:', dateStr)
-    return new Date()
-  }
-
-  const year = parseInt(parts[0], 10)
-  const month = parseInt(parts[1], 10)
-  const day = parseInt(parts[2], 10)
-
-  if (isNaN(day) || isNaN(month) || isNaN(year)) {
-    console.warn('Invalid date components:', dateStr)
-    return new Date()
-  }
-
-  const date = new Date(year, month - 1, day)
-
   if (isNaN(date.getTime())) {
     console.warn('Invalid date created:', dateStr)
     return new Date()
@@ -216,7 +187,7 @@ function parseCreditCardRows(data: CreditCardRow[]): Transaction[] {
         accountNumber: row['Account number'] || '',
         cardNumber: row['Card number'] || '',
         accountHolder: row['Account/Cardholder'] || '',
-        purchaseDate: parseDateDotFormat(row['Purchase date']),
+        purchaseDate: parseDate(row['Purchase date'], 'dot'),
         bookingText: row['Booking text'] || '',
         sector: row['Sector'] || 'Other',
         amount,
@@ -225,7 +196,7 @@ function parseCreditCardRows(data: CreditCardRow[]): Transaction[] {
         currency: row['Currency'] || 'CHF',
         debit,
         credit,
-        bookedDate: parseDateDotFormat(row['Booked']),
+        bookedDate: parseDate(row['Booked'], 'dot'),
       }
     })
 }
@@ -266,7 +237,7 @@ function parseBankStatementRows(data: BankStatementRow[]): Transaction[] {
         accountNumber: row['Transaction no.'] || '',
         cardNumber,
         accountHolder: '',
-        purchaseDate: parseDateISOFormat(row['Trade date']),
+        purchaseDate: parseDate(row['Trade date'], 'iso'),
         bookingText,
         sector: 'Other',
         amount,
@@ -275,7 +246,7 @@ function parseBankStatementRows(data: BankStatementRow[]): Transaction[] {
         currency: row['Currency'] || 'CHF',
         debit,
         credit,
-        bookedDate: parseDateISOFormat(row['Booking date'] || row['Value date']),
+        bookedDate: parseDate(row['Booking date'] || row['Value date'], 'iso'),
       }
     })
 }

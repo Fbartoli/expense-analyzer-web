@@ -16,6 +16,7 @@ interface CategoryBreakdownProps {
   budgetStatus?: BudgetWithSpending[]
   onMarkRecurring?: (entry: Omit<ManualRecurringTransaction, 'id'>) => void
   taggedFingerprints?: Set<string>
+  getCategoryColor?: (name: string) => string
 }
 
 const COLORS = [
@@ -48,6 +49,7 @@ export function CategoryBreakdown({
   budgetStatus = [],
   onMarkRecurring,
   taggedFingerprints,
+  getCategoryColor,
 }: CategoryBreakdownProps) {
   const chartTheme = useChartTheme()
   const [selectedCategory, setSelectedCategory] = useState<CategorySummary | null>(null)
@@ -175,7 +177,10 @@ export function CategoryBreakdown({
                     >
                       <div
                         className={`h-3 w-3 rounded-full ${isExcluded ? 'opacity-40' : ''}`}
-                        style={{ backgroundColor: COLORS[index % COLORS.length] }}
+                        style={{
+                          backgroundColor:
+                            getCategoryColor?.(cat.category) ?? COLORS[index % COLORS.length],
+                        }}
                         aria-hidden="true"
                       />
                       {cat.category}
@@ -226,7 +231,10 @@ export function CategoryBreakdown({
                       dataKey="value"
                     >
                       {chartData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                        <Cell
+                          key={`cell-${index}`}
+                          fill={getCategoryColor?.(entry.name) ?? COLORS[index % COLORS.length]}
+                        />
                       ))}
                     </Pie>
                     <Tooltip
@@ -260,7 +268,11 @@ export function CategoryBreakdown({
                         <div className="flex flex-1 items-center gap-3">
                           <div
                             className="h-5 w-5 flex-shrink-0 rounded-lg shadow-sm"
-                            style={{ backgroundColor: COLORS[index % COLORS.length] }}
+                            style={{
+                              backgroundColor:
+                                getCategoryColor?.(category.category) ??
+                                COLORS[index % COLORS.length],
+                            }}
                             aria-hidden="true"
                           />
                           <div className="flex-1 text-left">

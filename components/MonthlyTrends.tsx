@@ -25,6 +25,7 @@ import {
   getYear,
 } from 'date-fns'
 import { categorizeTransaction } from '@/lib/analyzer'
+import { BUILTIN_CATEGORY_COLORS } from '@/lib/category-colors'
 import { useChartTheme } from '@/lib/use-chart-theme'
 import { getChartPreferences, saveChartPreferences } from '@/lib/db'
 import { Filter, X, ChevronLeft, ZoomIn } from 'lucide-react'
@@ -42,6 +43,7 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 
 interface MonthlyStackedChartProps {
   transactions: Transaction[]
+  getCategoryColor?: (name: string) => string
 }
 
 type Granularity = 'daily' | 'weekly' | 'monthly' | 'yearly'
@@ -51,25 +53,6 @@ interface ZoomState {
   selectedYear?: string
   selectedMonth?: string
   selectedWeek?: string
-}
-
-const CATEGORY_COLORS: Record<string, string> = {
-  'Restaurants & Dining': '#ef4444',
-  Groceries: '#f97316',
-  Transportation: '#eab308',
-  'Travel & Accommodation': '#22c55e',
-  Shopping: '#14b8a6',
-  'Health & Beauty': '#3b82f6',
-  'Digital Services': '#8b5cf6',
-  'Insurance & Financial': '#ec4899',
-  Entertainment: '#6366f1',
-  Fuel: '#84cc16',
-  'Fitness & Sports': '#06b6d4',
-  'Utilities & Telecom': '#f43f5e',
-  'Professional Services': '#a855f7',
-  'Government & Taxes': '#10b981',
-  'Crypto & Investments': '#f59e0b',
-  Other: '#9ca3af',
 }
 
 interface PeriodData {
@@ -85,7 +68,7 @@ interface ChartDataPoint {
   [key: string]: string | number | { category: string; value: number }[]
 }
 
-export function MonthlyTrends({ transactions }: MonthlyStackedChartProps) {
+export function MonthlyTrends({ transactions, getCategoryColor }: MonthlyStackedChartProps) {
   const [zoomState, setZoomState] = useState<ZoomState>({ level: 'yearly' })
   const [excludedCategories, setExcludedCategories] = useState<Set<string>>(new Set())
   const [showFilterPanel, setShowFilterPanel] = useState(false)
@@ -185,7 +168,7 @@ export function MonthlyTrends({ transactions }: MonthlyStackedChartProps) {
     transactions
       .filter((t) => (t.debit || 0) > 0)
       .forEach((t) => {
-        categories.add(categorizeTransaction(t))
+        categories.add(t.category || categorizeTransaction(t))
       })
     return Array.from(categories).sort()
   }, [transactions])
@@ -201,7 +184,7 @@ export function MonthlyTrends({ transactions }: MonthlyStackedChartProps) {
       })
       .map((t) => ({
         ...t,
-        category: categorizeTransaction(t),
+        category: t.category || categorizeTransaction(t),
       }))
       .sort((a, b) => (b.debit || 0) - (a.debit || 0))
   }, [selectedDay, transactions])
@@ -244,7 +227,7 @@ export function MonthlyTrends({ transactions }: MonthlyStackedChartProps) {
         return
       }
 
-      const category = categorizeTransaction(transaction)
+      const category = transaction.category || categorizeTransaction(transaction)
       if (excludedCategories.has(category)) {
         return
       }
@@ -426,7 +409,12 @@ export function MonthlyTrends({ transactions }: MonthlyStackedChartProps) {
           <div key={i} className="flex items-center gap-2 py-1 text-sm">
             <div
               className="h-3 w-3 flex-shrink-0 rounded-sm"
-              style={{ backgroundColor: CATEGORY_COLORS[segment.category] || '#9ca3af' }}
+              style={{
+                backgroundColor:
+                  getCategoryColor?.(segment.category) ??
+                  BUILTIN_CATEGORY_COLORS[segment.category] ??
+                  '#9ca3af',
+              }}
             />
             <span className="text-muted-foreground">{segment.category}:</span>
             <span className="font-semibold">{formatCurrency(segment.value)}</span>
@@ -592,7 +580,12 @@ export function MonthlyTrends({ transactions }: MonthlyStackedChartProps) {
                   >
                     <div
                       className={`h-3 w-3 rounded-sm ${isExcluded ? 'opacity-30' : ''}`}
-                      style={{ backgroundColor: CATEGORY_COLORS[category] || '#9ca3af' }}
+                      style={{
+                        backgroundColor:
+                          getCategoryColor?.(category) ??
+                          BUILTIN_CATEGORY_COLORS[category] ??
+                          '#9ca3af',
+                      }}
                     />
                     {category}
                     {isExcluded && <X className="h-3 w-3" />}
@@ -675,7 +668,9 @@ export function MonthlyTrends({ transactions }: MonthlyStackedChartProps) {
                     <Cell
                       key={`cell-${entryIndex}`}
                       fill={
-                        CATEGORY_COLORS[entry[`slot${slotIndex}Category`] as string] || '#9ca3af'
+                        getCategoryColor?.(entry[`slot${slotIndex}Category`] as string) ??
+                        BUILTIN_CATEGORY_COLORS[entry[`slot${slotIndex}Category`] as string] ??
+                        '#9ca3af'
                       }
                     />
                   ))}
@@ -687,12 +682,17 @@ export function MonthlyTrends({ transactions }: MonthlyStackedChartProps) {
 
         {/* Legend */}
         <div className="mt-6 flex flex-wrap justify-center gap-4">
-          {Object.entries(CATEGORY_COLORS)
+          {Object.entries(BUILTIN_CATEGORY_COLORS)
             .filter(([category]) => !excludedCategories.has(category))
             .slice(0, 12)
             .map(([category, color]) => (
               <div key={category} className="flex items-center gap-2 text-sm">
-                <div className="h-3 w-3 rounded-sm" style={{ backgroundColor: color }} />
+                <div
+                  className="h-3 w-3 rounded-sm"
+                  style={{
+                    backgroundColor: getCategoryColor?.(category) ?? color,
+                  }}
+                />
                 <span className="text-muted-foreground">{category}</span>
               </div>
             ))}
@@ -725,7 +725,12 @@ export function MonthlyTrends({ transactions }: MonthlyStackedChartProps) {
                     >
                       <div
                         className="h-3 w-3 flex-shrink-0 rounded-sm"
-                        style={{ backgroundColor: CATEGORY_COLORS[t.category] || '#9ca3af' }}
+                        style={{
+                          backgroundColor:
+                            getCategoryColor?.(t.category) ??
+                            BUILTIN_CATEGORY_COLORS[t.category] ??
+                            '#9ca3af',
+                        }}
                       />
                       <div className="min-w-0 flex-1">
                         <p className="truncate font-medium text-gray-900 dark:text-gray-100">
