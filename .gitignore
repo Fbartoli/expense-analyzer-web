@@ -10,3 +10,4 @@ screenshot
 coverage/
 tsconfig.tsbuildinfo
 test-csv/
+.gstack

@@ -8,107 +8,26 @@ import type {
   BudgetWithSpending,
   BudgetStatus,
 } from './types'
+import {
+  SECTOR_CATEGORY_MAP,
+  CRYPTO_KEYWORDS,
+  EARLY_TEXT_RULES,
+  SECTOR_PARTIAL_RULES,
+  BOOKING_TEXT_RULES,
+  type BookingTextRule,
+} from './categorization-rules'
 
 export interface TransactionWithCategory extends Transaction {
   manualCategory?: string
 }
 
-// Sector-to-category mapping (exact matches)
-const SECTOR_CATEGORY_MAP: { [key: string]: string } = {
-  // Restaurants & Dining
-  Restaurants: 'Restaurants & Dining',
-  'Fast-Food Restaurants': 'Restaurants & Dining',
-  'Fast Food Restaurant': 'Restaurants & Dining',
-  Bakeries: 'Restaurants & Dining',
-  Delivery: 'Restaurants & Dining',
-  Caterers: 'Restaurants & Dining',
+export function categorizeTransaction(
+  transaction: Transaction | TransactionWithCategory,
+  customRules?: BookingTextRule[]
+): string {
+  if (!transaction) return 'Other'
 
-  // Travel
-  Hotels: 'Travel & Accommodation',
-  'Hotel Indigo': 'Travel & Accommodation',
-  'Travel agencies': 'Travel & Accommodation',
-  'Surcharge abroad': 'Travel & Accommodation',
-  Airlines: 'Travel & Accommodation',
-  Cathay: 'Travel & Accommodation',
-  'Swiss International Air Lines': 'Travel & Accommodation',
-  United: 'Travel & Accommodation',
-  'Rent-a-car': 'Travel & Accommodation',
-  'Car Rental Company': 'Travel & Accommodation',
-  'Duty free shop': 'Travel & Accommodation',
-
-  // Groceries
-  'Grocery stores': 'Groceries',
-  Supermarkets: 'Groceries',
-
-  // Transportation
-  'Commuter transportation': 'Transportation',
-  'Public transport': 'Transportation',
-  'Taxi services': 'Transportation',
-  Taxicabs: 'Transportation',
-  Parking: 'Transportation',
-  UBER: 'Transportation',
-  'Passenger railways': 'Transportation',
-  'Gasoline service stations': 'Fuel',
-
-  // Shopping
-  'Clothing store': 'Shopping',
-  'Clothing - sports': 'Shopping',
-  'Cosmetic stores': 'Shopping',
-  'Department stores': 'Shopping',
-  'Retail stores': 'Shopping',
-  'Retail business': 'Shopping',
-  'Catalog Merchant': 'Shopping',
-  Bike: 'Shopping',
-  Books: 'Shopping',
-  'Book stores': 'Shopping',
-  'Electronics Stores': 'Shopping',
-  'Leather goods': 'Shopping',
-  'Shoe stores': 'Shopping',
-  Florists: 'Shopping',
-  'Precious metals, Metals, Watches and Jewelry (B2B)': 'Shopping',
-
-  // Health & Beauty
-  Pharmacies: 'Health & Beauty',
-  'Barber or beauty shops': 'Health & Beauty',
-  Healthcare: 'Health & Beauty',
-  'Medical services': 'Health & Beauty',
-  'Doctors and Physicians': 'Health & Beauty',
-  Optician: 'Health & Beauty',
-  Wellness: 'Health & Beauty',
-
-  // Digital Services
-  'Digital goods': 'Digital Services',
-  Subscriptions: 'Digital Services',
-  'Online services': 'Digital Services',
-  Software: 'Digital Services',
-  'Computer software stores': 'Digital Services',
-  'Telegraph services': 'Digital Services',
-  'Data processing services': 'Digital Services',
-
-  // Insurance & Financial
-  'Direct marketing insurance services': 'Insurance & Financial',
-  Insurance: 'Insurance & Financial',
-  'Financial services': 'Insurance & Financial',
-  'Banking fees': 'Insurance & Financial',
-  'Bank interest': 'Insurance & Financial',
-
-  // Entertainment
-  Cinema: 'Entertainment',
-
-  // Professional Services
-  'Repair Shops': 'Professional Services',
-  'Government Services': 'Government & Taxes',
-  'Advertising services': 'Professional Services',
-  'Business services': 'Professional Services',
-  'Professional Services - Not Elsewhere Classified': 'Professional Services',
-}
-
-export function categorizeTransaction(transaction: Transaction | TransactionWithCategory): string {
-  if (!transaction) {
-    return 'Other'
-  }
-
-  // Check for manual category override first
+  // 1. Manual override
   if ('manualCategory' in transaction && transaction.manualCategory) {
     return transaction.manualCategory
   }
@@ -118,381 +37,89 @@ export function categorizeTransaction(transaction: Transaction | TransactionWith
   const upperText = transaction.bookingText.toUpperCase()
   const upperSector = sector.toUpperCase()
 
-  // Check for crypto investments (special case)
-  if (
-    upperText.includes('COINBASE') ||
-    upperText.includes('KRAKEN') ||
-    upperText.includes('BINANCE')
-  ) {
-    return 'Crypto & Investments'
+  // 2. Crypto special-case (booking text)
+  for (const kw of CRYPTO_KEYWORDS) {
+    if (upperText.includes(kw)) return 'Crypto & Investments'
   }
 
-  // Try exact sector match first (most accurate)
+  // 3. Exact sector match
   if (SECTOR_CATEGORY_MAP[sector]) {
     return SECTOR_CATEGORY_MAP[sector]
   }
 
-  // Check for Uber Eats before Uber Transportation
-  if (text.includes('uber eats') || text.includes('ubereats')) {
-    return 'Restaurants & Dining'
+  // 4. Early booking-text rules (food delivery, hotel platforms)
+  for (const rule of EARLY_TEXT_RULES) {
+    if (rule.keywords.some((kw) => text.includes(kw))) {
+      return rule.category
+    }
   }
 
-  // Check for food delivery services
-  if (
-    text.includes('deliveroo') ||
-    text.includes('just eat') ||
-    text.includes('doordash') ||
-    text.includes('eat.ch')
-  ) {
-    return 'Restaurants & Dining'
+  // 5. Partial sector matches
+  for (const rule of SECTOR_PARTIAL_RULES) {
+    if (rule.patterns.some((p) => upperSector.includes(p))) {
+      return rule.category
+    }
   }
 
-  // Check for hotel bookings
-  if (
-    text.includes('booking.com') ||
-    text.includes('airbnb') ||
-    text.includes('hotels.com') ||
-    text.includes('expedia')
-  ) {
-    return 'Travel & Accommodation'
+  // 6. Booking text keyword matches
+  for (const rule of BOOKING_TEXT_RULES) {
+    if (rule.keywords.some((kw) => text.includes(kw))) {
+      return rule.category
+    }
   }
 
-  // Check sector partial matches for common patterns
-  if (upperSector.includes('SURCHARGE ABROAD')) {
-    return 'Travel & Accommodation'
+  // 7. Custom keyword rules (after built-in, before fallback)
+  if (customRules) {
+    for (const rule of customRules) {
+      if (rule.keywords.some((kw) => text.includes(kw))) {
+        return rule.category
+      }
+    }
   }
 
-  if (
-    upperSector.includes('COM/BILL') ||
-    upperSector.includes('APPLE') ||
-    upperSector.includes('ITUNES')
-  ) {
-    return 'Digital Services'
-  }
-
-  if (upperSector.includes('RESTAURANT') || upperSector.includes('FOOD')) {
-    return 'Restaurants & Dining'
-  }
-
-  if (upperSector.includes('GROCERY') || upperSector.includes('SUPERMARKET')) {
-    return 'Groceries'
-  }
-
-  if (upperSector.includes('TRANSPORT') || upperSector.includes('TAXI')) {
-    return 'Transportation'
-  }
-
-  if (upperSector.includes('HOTEL') || upperSector.includes('AIRLINE')) {
-    return 'Travel & Accommodation'
-  }
-
-  // Entertainment check (before Shopping to catch entertainment stores)
-  if (
-    upperSector.includes('ENTERTAINMENT') ||
-    upperSector.includes('CINEMA') ||
-    upperSector.includes('THEATER') ||
-    upperSector.includes('CONCERT') ||
-    upperSector.includes('STREAMING') ||
-    upperSector.includes('GAMING') ||
-    upperSector.includes('MOVIE')
-  ) {
-    return 'Entertainment'
-  }
-
-  if (
-    upperSector.includes('SHOP') ||
-    upperSector.includes('RETAIL') ||
-    upperSector.includes('STORE')
-  ) {
-    return 'Shopping'
-  }
-
-  if (
-    upperSector.includes('HEALTH') ||
-    upperSector.includes('MEDICAL') ||
-    upperSector.includes('PHARMA')
-  ) {
-    return 'Health & Beauty'
-  }
-
-  if (upperSector.includes('INSURANCE')) {
-    return 'Insurance & Financial'
-  }
-
-  // --- Booking text keyword matching ---
-  // This is the primary categorization path for bank statement transactions
-  // where sector data is unavailable.
-
-  // Groceries — Swiss supermarket chains and grocery stores
-  if (
-    text.includes('migros') ||
-    text.includes('coop') ||
-    text.includes('aldi') ||
-    text.includes('lidl') ||
-    text.includes('denner') ||
-    text.includes('spar') ||
-    text.includes('volg') ||
-    text.includes('manor food') ||
-    text.includes('grocery') ||
-    text.includes('supermarket')
-  ) {
-    return 'Groceries'
-  }
-
-  // Restaurants & Dining
-  if (
-    text.includes('restaurant') ||
-    text.includes('pizzeria') ||
-    text.includes('mcdonald') ||
-    text.includes('burger king') ||
-    text.includes('starbucks') ||
-    text.includes('cafe') ||
-    text.includes('café') ||
-    text.includes('coffee') ||
-    text.includes('bakery') ||
-    text.includes('bäckerei') ||
-    text.includes('backerei') ||
-    text.includes('conditorei') ||
-    text.includes('confiserie') ||
-    text.includes('kebab') ||
-    text.includes('sushi') ||
-    text.includes('bistro') ||
-    text.includes('trattoria') ||
-    text.includes('osteria') ||
-    text.includes('brasserie') ||
-    text.includes('restorant') ||
-    text.includes('joe the juice') ||
-    text.includes('juice') ||
-    text.includes('panada') ||
-    text.includes('sv (schweiz)') ||
-    text.includes('selecta') ||
-    text.includes('uber eats') ||
-    text.includes('ubereats') ||
-    text.includes('deliveroo') ||
-    text.includes('just eat') ||
-    text.includes('doordash') ||
-    text.includes('eat.ch')
-  ) {
-    return 'Restaurants & Dining'
-  }
-
-  // Transportation — Swiss public transit and ride services
-  if (
-    text.includes('sbb') ||
-    text.includes('cff') ||
-    text.includes('ffs') ||
-    text.includes('zvv') ||
-    text.includes('bvb') ||
-    text.includes('vbz') ||
-    text.includes('tpg') ||
-    text.includes('bernmobil') ||
-    text.includes('postauto') ||
-    text.includes('flixbus') ||
-    text.includes('uber') ||
-    text.includes('taxi') ||
-    text.includes('bolt') ||
-    text.includes('parking') ||
-    text.includes('parkhaus') ||
-    text.includes('tankstelle') ||
-    text.includes('gas station') ||
-    text.includes('shell') ||
-    text.includes('bp ')
-  ) {
-    return 'Transportation'
-  }
-
-  // Travel & Accommodation
-  if (
-    text.includes('hotel') ||
-    text.includes('hostel') ||
-    text.includes('airbnb') ||
-    text.includes('booking.com') ||
-    text.includes('hotels.com') ||
-    text.includes('expedia') ||
-    text.includes('airline') ||
-    text.includes('swiss air') ||
-    text.includes('easyjet') ||
-    text.includes('ryanair') ||
-    text.includes('lufthansa') ||
-    text.includes('duty free')
-  ) {
-    return 'Travel & Accommodation'
-  }
-
-  // Housing — rent, mortgage, property
-  if (
-    text.includes('immobilien') ||
-    text.includes('miete') ||
-    text.includes('rent') ||
-    text.includes('wohnung') ||
-    text.includes('hypothek') ||
-    text.includes('mortgage') ||
-    text.includes('standing order') ||
-    text.includes('merbag')
-  ) {
-    return 'Housing'
-  }
-
-  // Insurance & Financial
-  if (
-    text.includes('sanitas') ||
-    text.includes('css') ||
-    text.includes('swica') ||
-    text.includes('helsana') ||
-    text.includes('concordia') ||
-    text.includes('assura') ||
-    text.includes('groupe mutuel') ||
-    text.includes('visana') ||
-    text.includes('atupri') ||
-    text.includes('insurance') ||
-    text.includes('versicherung') ||
-    text.includes('grundversicherung') ||
-    text.includes('ubs switzerland') ||
-    text.includes('card center') ||
-    text.includes('revolut') ||
-    text.includes('wise.com') ||
-    text.includes('bank') ||
-    text.includes('balance closing') ||
-    text.includes('service prices')
-  ) {
-    return 'Insurance & Financial'
-  }
-
-  // Utilities & Telecom
-  if (
-    text.includes('swisscom') ||
-    text.includes('sunrise') ||
-    text.includes('salt') ||
-    text.includes('yallo') ||
-    text.includes('wingo') ||
-    text.includes('ewz') ||
-    text.includes('ewb') ||
-    text.includes('energie') ||
-    text.includes('elektrizität') ||
-    text.includes('strom') ||
-    text.includes('gas ')
-  ) {
-    return 'Utilities & Telecom'
-  }
-
-  // Fitness & Sports
-  if (
-    text.includes('gym') ||
-    text.includes('fitness') ||
-    text.includes('movemi') ||
-    text.includes('activ fitness') ||
-    text.includes('update fitness') ||
-    text.includes('crossfit') ||
-    text.includes('yoga')
-  ) {
-    return 'Fitness & Sports'
-  }
-
-  // Entertainment & Leisure
-  if (
-    text.includes('cinema') ||
-    text.includes('kino') ||
-    text.includes('movie') ||
-    text.includes('theatre') ||
-    text.includes('theater') ||
-    text.includes('concert') ||
-    text.includes('festival') ||
-    text.includes('spa') ||
-    text.includes('aqua') ||
-    text.includes('eisweg') ||
-    text.includes('game store') ||
-    text.includes('steam') ||
-    text.includes('playstation') ||
-    text.includes('xbox') ||
-    text.includes('nintendo') ||
-    text.includes('spotify') ||
-    text.includes('netflix') ||
-    text.includes('youtube premium') ||
-    text.includes('youtube music') ||
-    text.includes('disney+') ||
-    text.includes('hbo') ||
-    text.includes('prime video') ||
-    text.includes('apple music') ||
-    text.includes('soundcloud')
-  ) {
-    return 'Entertainment'
-  }
-
-  // Shopping — bookstores, kiosks, retail
-  if (
-    text.includes('kiosk') ||
-    text.includes('orell füssli') ||
-    text.includes('orell fussli') ||
-    text.includes('manor') ||
-    text.includes('globus') ||
-    text.includes('ikea') ||
-    text.includes('h&m') ||
-    text.includes('zara') ||
-    text.includes('media markt') ||
-    text.includes('interdiscount') ||
-    text.includes('digitec') ||
-    text.includes('galaxus') ||
-    text.includes('book') ||
-    text.includes('shop')
-  ) {
-    return 'Shopping'
-  }
-
-  // Health & Beauty
-  if (
-    text.includes('apotheke') ||
-    text.includes('pharmacy') ||
-    text.includes('drogerie') ||
-    text.includes('arzt') ||
-    text.includes('doctor') ||
-    text.includes('zahnarzt') ||
-    text.includes('dentist') ||
-    text.includes('optik') ||
-    text.includes('optician')
-  ) {
-    return 'Health & Beauty'
-  }
-
-  // QR payments and generic transactions
+  // 8. QR payments and generic transactions
   if (upperSector.includes('QR PAYMENT') || sector === 'A' || sector === '') {
     return 'Other'
   }
 
-  // If we get here, it's truly uncategorized
   return 'Other'
+}
+
+export interface AnalyzeOptions {
+  customRules?: BookingTextRule[]
+  resolveCategory?: (raw: string) => string
 }
 
 export function analyzeExpenses(
   transactions: Transaction[],
-  categoryOverrides?: Map<number, string>
+  categoryOverrides?: Map<number, string>,
+  options?: AnalyzeOptions
 ): ExpenseReport {
-  // Apply category overrides if provided
-  const transactionsWithOverrides = categoryOverrides
-    ? transactions.map(
-        (t, idx) =>
-          ({
-            ...t,
-            manualCategory: categoryOverrides.get(idx),
-          }) as TransactionWithCategory
-      )
-    : transactions
+  const { customRules, resolveCategory } = options ?? {}
 
-  const expenses = transactionsWithOverrides.filter((t) => (t.debit || 0) > 0)
-  const income = transactionsWithOverrides.filter((t) => (t.credit || 0) > 0)
+  // Categorize all transactions upfront and stamp category on each
+  const categorized: Transaction[] = transactions.map((t, idx) => {
+    const override = categoryOverrides?.get(idx)
+    const withOverride = override
+      ? ({ ...t, manualCategory: override } as TransactionWithCategory)
+      : t
+    const raw = categorizeTransaction(withOverride, customRules)
+    const resolved = resolveCategory ? resolveCategory(raw) : raw
+    return { ...t, category: resolved }
+  })
+
+  const expenses = categorized.filter((t) => (t.debit || 0) > 0)
+  const income = categorized.filter((t) => (t.credit || 0) > 0)
 
   const totalSpent = expenses.reduce((sum, t) => sum + (t.debit || 0), 0)
   const totalIncome = income.reduce((sum, t) => sum + (t.credit || 0), 0)
 
   const categoryMap = new Map<string, Transaction[]>()
-  expenses.forEach((transaction) => {
-    const category = categorizeTransaction(transaction)
-    if (!categoryMap.has(category)) {
-      categoryMap.set(category, [])
-    }
-    // Store original transaction without override
-    const originalTx = transactions[transactionsWithOverrides.indexOf(transaction)]
-    categoryMap.get(category)!.push(originalTx)
-  })
+  for (const tx of expenses) {
+    const cat = tx.category!
+    if (!categoryMap.has(cat)) categoryMap.set(cat, [])
+    categoryMap.get(cat)!.push(tx)
+  }
 
   const categorySummaries: CategorySummary[] = Array.from(categoryMap.entries())
     .map(([category, txns]) => {
@@ -501,7 +128,7 @@ export function analyzeExpenses(
         category,
         totalSpent: categoryTotalSpent,
         count: txns.length,
-        percentage: (categoryTotalSpent / (categoryTotalSpent > 0 ? categoryTotalSpent : 1)) * 100,
+        percentage: 0,
         averageTransaction: categoryTotalSpent / txns.length,
         transactions: txns,
       }
@@ -514,22 +141,16 @@ export function analyzeExpenses(
   })
 
   const monthlyMap = new Map<string, Transaction[]>()
-  transactionsWithOverrides.forEach((transaction, idx) => {
+  for (const tx of categorized) {
     try {
-      if (!transaction.purchaseDate || isNaN(transaction.purchaseDate.getTime())) {
-        return
-      }
-      const monthKey = format(transaction.purchaseDate, 'yyyy-MM')
-      if (!monthlyMap.has(monthKey)) {
-        monthlyMap.set(monthKey, [])
-      }
-      // Store original transaction
-      const originalTx = transactions[idx]
-      monthlyMap.get(monthKey)!.push(originalTx)
+      if (!tx.purchaseDate || isNaN(tx.purchaseDate.getTime())) continue
+      const monthKey = format(tx.purchaseDate, 'yyyy-MM')
+      if (!monthlyMap.has(monthKey)) monthlyMap.set(monthKey, [])
+      monthlyMap.get(monthKey)!.push(tx)
     } catch (_error) {
-      console.warn('Invalid date for transaction:', transaction)
+      console.warn('Invalid date for transaction:', tx)
     }
-  })
+  }
 
   const monthlyAnalysis: MonthlyAnalysis[] = Array.from(monthlyMap.entries())
     .sort((a, b) => a[0].localeCompare(b[0])) // Sort by yyyy-MM key (chronological)
@@ -553,7 +174,7 @@ export function analyzeExpenses(
 
   const topExpenses = [...expenses].sort((a, b) => (b.debit || 0) - (a.debit || 0)).slice(0, 10)
 
-  const dates = transactionsWithOverrides
+  const dates = categorized
     .map((t) => t.purchaseDate)
     .filter((d) => d && !isNaN(d.getTime()))
     .sort((a, b) => a.getTime() - b.getTime())
@@ -571,6 +192,7 @@ export function analyzeExpenses(
     monthlyAnalysis,
     topExpenses,
     largestCategory: categorySummaries[0] || null,
+    categorizedTransactions: categorized,
   }
 }
 
@@ -600,7 +222,7 @@ export function calculateBudgetStatus(
   const categorySpending = new Map<string, number>()
   monthTransactions.forEach((t) => {
     if ((t.debit || 0) > 0) {
-      const category = categorizeTransaction(t)
+      const category = t.category || categorizeTransaction(t)
       categorySpending.set(category, (categorySpending.get(category) || 0) + (t.debit || 0))
     }
   })

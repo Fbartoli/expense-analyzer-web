@@ -13,7 +13,7 @@ import {
   Users,
 } from 'lucide-react'
 import { categorizeTransaction } from '@/lib/analyzer'
-import { getAllCategories } from '@/lib/categories'
+import { CATEGORIES } from '@/lib/categories'
 import { getMemberForTransaction } from '@/lib/members'
 import { transactionFingerprint } from '@/lib/recurring'
 import { MarkRecurringButton } from './MarkRecurringButton'
@@ -45,6 +45,7 @@ interface TransactionsTableProps {
   onUpdateMembers?: (overrides: Map<number, string>) => void
   onMarkRecurring?: (entry: Omit<ManualRecurringTransaction, 'id'>) => void
   taggedFingerprints?: Set<string>
+  allCategories?: readonly string[]
 }
 
 interface TransactionWithCategory extends Transaction {
@@ -68,6 +69,7 @@ export function TransactionsTable({
   onUpdateMembers,
   onMarkRecurring,
   taggedFingerprints,
+  allCategories,
 }: TransactionsTableProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
@@ -85,21 +87,24 @@ export function TransactionsTable({
     return transactions.map((t, idx) => ({
       ...t,
       id: idx,
-      category: categorizeTransaction(t),
+      category: t.category || categorizeTransaction(t),
       member: getMemberForTransaction(idx, t, members, memberOverrides),
     })) as (TransactionWithCategory & { id: number })[]
   }, [transactions, members, memberOverrides])
 
-  const [localTransactions, setLocalTransactions] = useState(transactionsWithCategories)
-  const [overrides, setOverrides] = useState<Map<number, string>>(new Map())
+  const [localOverrides, setLocalOverrides] = useState<Map<number, string>>(new Map())
 
-  useEffect(() => {
-    setLocalTransactions(transactionsWithCategories)
-    setOverrides(new Map())
-  }, [transactionsWithCategories])
+  // Derive working list from props + local overrides
+  const workingTransactions = useMemo(() => {
+    if (localOverrides.size === 0) return transactionsWithCategories
+    return transactionsWithCategories.map((t) => {
+      const override = localOverrides.get(t.id)
+      return override ? { ...t, category: override } : t
+    })
+  }, [transactionsWithCategories, localOverrides])
 
   const filteredTransactions = useMemo(() => {
-    let result = localTransactions.filter((t) => {
+    let result = workingTransactions.filter((t) => {
       const matchesSearch =
         t.bookingText.toLowerCase().includes(searchTerm.toLowerCase()) ||
         t.sector.toLowerCase().includes(searchTerm.toLowerCase())
@@ -146,7 +151,7 @@ export function TransactionsTable({
 
     return result
   }, [
-    localTransactions,
+    workingTransactions,
     searchTerm,
     categoryFilter,
     memberFilter,
@@ -155,32 +160,42 @@ export function TransactionsTable({
     sortConfig,
   ])
 
-  const categories = getAllCategories()
+  const PAGE_SIZE = 50
+  const [currentPage, setCurrentPage] = useState(0)
+
+  // Reset page when filters change
+  useEffect(() => {
+    setCurrentPage(0)
+  }, [searchTerm, categoryFilter, memberFilter, minAmount, maxAmount, sortConfig])
+
+  const totalPages = Math.max(1, Math.ceil(filteredTransactions.length / PAGE_SIZE))
+  const paginatedTransactions = filteredTransactions.slice(
+    currentPage * PAGE_SIZE,
+    (currentPage + 1) * PAGE_SIZE
+  )
+
+  const categories = allCategories ?? CATEGORIES
   const uniqueCategories = useMemo(() => {
-    return Array.from(new Set(localTransactions.map((t) => t.category))).sort()
-  }, [localTransactions])
+    return Array.from(new Set(workingTransactions.map((t) => t.category))).sort()
+  }, [workingTransactions])
 
   const uniqueMembers = useMemo(() => {
     return Array.from(
-      new Set(localTransactions.map((t) => t.member).filter(Boolean) as string[])
+      new Set(workingTransactions.map((t) => t.member).filter(Boolean) as string[])
     ).sort()
-  }, [localTransactions])
+  }, [workingTransactions])
 
   const handleCategoryChange = (id: number, newCategory: string) => {
-    const updated = localTransactions.map((t) =>
-      t.id === id ? { ...t, category: newCategory } : t
-    )
-    setLocalTransactions(updated)
     setEditingId(null)
 
-    const newOverrides = new Map(overrides)
-    const originalCategory = categorizeTransaction(transactions[id])
+    const newOverrides = new Map(localOverrides)
+    const originalCategory = transactions[id].category || categorizeTransaction(transactions[id])
     if (newCategory !== originalCategory) {
       newOverrides.set(id, newCategory)
     } else {
       newOverrides.delete(id)
     }
-    setOverrides(newOverrides)
+    setLocalOverrides(newOverrides)
 
     onUpdateCategories(newOverrides)
   }
@@ -193,10 +208,6 @@ export function TransactionsTable({
   }
 
   const handleMemberChange = (id: number, newMember: string) => {
-    const updated = localTransactions.map((t) =>
-      t.id === id ? { ...t, member: newMember || null } : t
-    )
-    setLocalTransactions(updated)
     setEditingMemberId(null)
 
     if (onUpdateMembers) {
@@ -211,8 +222,7 @@ export function TransactionsTable({
   }
 
   const handleReset = () => {
-    setLocalTransactions(transactionsWithCategories)
-    setOverrides(new Map())
+    setLocalOverrides(new Map())
     setMinAmount('')
     setMaxAmount('')
     setSortConfig(null)
@@ -371,7 +381,11 @@ export function TransactionsTable({
 
           <div className="min-h-0 flex-1 overflow-y-auto p-6">
             <div className="mb-4 text-sm text-muted-foreground">
-              Showing {filteredTransactions.length} of {localTransactions.length} transactions
+              Showing {currentPage * PAGE_SIZE + 1}–
+              {Math.min((currentPage + 1) * PAGE_SIZE, filteredTransactions.length)} of{' '}
+              {filteredTransactions.length} transactions
+              {filteredTransactions.length < workingTransactions.length &&
+                ` (filtered from ${workingTransactions.length})`}
             </div>
 
             <div className="overflow-x-auto">
@@ -426,7 +440,7 @@ export function TransactionsTable({
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredTransactions.map((transaction) => (
+                  {paginatedTransactions.map((transaction) => (
                     <TableRow
                       key={transaction.id}
                       className="border-b border-gray-100 transition-colors hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-800"
@@ -467,7 +481,10 @@ export function TransactionsTable({
                             }}
                             value={transaction.category}
                             onChange={(e) => handleCategoryChange(transaction.id, e.target.value)}
-                            onBlur={() => setEditingId(null)}
+                            onBlur={() => {
+                              // Delay so onChange fires before the select unmounts
+                              setTimeout(() => setEditingId(null), 150)
+                            }}
                             className="w-full rounded-lg border border-blue-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                           >
                             {categories.map((cat) => (
@@ -503,7 +520,9 @@ export function TransactionsTable({
                               }}
                               value={transaction.member || ''}
                               onChange={(e) => handleMemberChange(transaction.id, e.target.value)}
-                              onBlur={() => setEditingMemberId(null)}
+                              onBlur={() => {
+                                setTimeout(() => setEditingMemberId(null), 150)
+                              }}
                               className="w-full rounded-lg border border-indigo-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                             >
                               <option value="">Unassigned</option>
@@ -551,7 +570,7 @@ export function TransactionsTable({
                 </TableBody>
               </Table>
 
-              {filteredTransactions.length === 0 && (
+              {paginatedTransactions.length === 0 && (
                 <div className="py-12 text-center text-muted-foreground">
                   <Search className="mx-auto mb-4 h-16 w-16 text-gray-300 dark:text-gray-600" />
                   <p>No transactions found</p>
@@ -565,6 +584,29 @@ export function TransactionsTable({
             <p className="text-sm text-muted-foreground">
               Changes are applied immediately to charts and summaries
             </p>
+            {totalPages > 1 && (
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={currentPage === 0}
+                  onClick={() => setCurrentPage((p) => p - 1)}
+                >
+                  Previous
+                </Button>
+                <span className="text-sm text-muted-foreground">
+                  Page {currentPage + 1} of {totalPages}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={currentPage >= totalPages - 1}
+                  onClick={() => setCurrentPage((p) => p + 1)}
+                >
+                  Next
+                </Button>
+              </div>
+            )}
             <Button
               onClick={() => setIsOpen(false)}
               className="bg-gradient-to-r from-green-500 to-teal-600 hover:from-green-600 hover:to-teal-700"

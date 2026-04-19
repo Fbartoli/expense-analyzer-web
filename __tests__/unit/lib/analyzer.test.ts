@@ -112,6 +112,276 @@ describe('analyzer', () => {
         })
         expect(categorizeTransaction(tx)).toBe('Other')
       })
+
+      it('should return Other for QR PAYMENT sector', () => {
+        const tx = createMockTransaction({
+          sector: 'QR PAYMENT',
+          bookingText: 'Some payment',
+        })
+        expect(categorizeTransaction(tx)).toBe('Other')
+      })
+
+      it('should return Other for empty sector', () => {
+        const tx = createMockTransaction({
+          sector: '',
+          bookingText: 'Unknown thing 12345',
+        })
+        expect(categorizeTransaction(tx)).toBe('Other')
+      })
+    })
+
+    describe('all categories — exact sector matches', () => {
+      it.each([
+        ['Restaurants', 'Restaurants & Dining'],
+        ['Fast-Food Restaurants', 'Restaurants & Dining'],
+        ['Fast Food Restaurant', 'Restaurants & Dining'],
+        ['Bakeries', 'Restaurants & Dining'],
+        ['Delivery', 'Restaurants & Dining'],
+        ['Caterers', 'Restaurants & Dining'],
+        ['Hotels', 'Travel & Accommodation'],
+        ['Travel agencies', 'Travel & Accommodation'],
+        ['Airlines', 'Travel & Accommodation'],
+        ['Rent-a-car', 'Travel & Accommodation'],
+        ['Surcharge abroad', 'Travel & Accommodation'],
+        ['Grocery stores', 'Groceries'],
+        ['Supermarkets', 'Groceries'],
+        ['Commuter transportation', 'Transportation'],
+        ['Public transport', 'Transportation'],
+        ['Taxi services', 'Transportation'],
+        ['Parking', 'Transportation'],
+        ['UBER', 'Transportation'],
+        ['Gasoline service stations', 'Fuel'],
+        ['Clothing store', 'Shopping'],
+        ['Department stores', 'Shopping'],
+        ['Electronics Stores', 'Shopping'],
+        ['Book stores', 'Shopping'],
+        ['Pharmacies', 'Health & Beauty'],
+        ['Barber or beauty shops', 'Health & Beauty'],
+        ['Healthcare', 'Health & Beauty'],
+        ['Doctors and Physicians', 'Health & Beauty'],
+        ['Digital goods', 'Digital Services'],
+        ['Subscriptions', 'Digital Services'],
+        ['Software', 'Digital Services'],
+        ['Data processing services', 'Digital Services'],
+        ['Insurance', 'Insurance & Financial'],
+        ['Financial services', 'Insurance & Financial'],
+        ['Banking fees', 'Insurance & Financial'],
+        ['Cinema', 'Entertainment'],
+        ['Repair Shops', 'Professional Services'],
+        ['Government Services', 'Government & Taxes'],
+        ['Advertising services', 'Professional Services'],
+      ])('sector "%s" → %s', (sector, expected) => {
+        const tx = createMockTransaction({
+          sector,
+          bookingText: 'Generic merchant',
+        })
+        expect(categorizeTransaction(tx)).toBe(expected)
+      })
+    })
+
+    describe('all categories — partial sector matches', () => {
+      it.each([
+        ['SURCHARGE ABROAD CHF', 'Travel & Accommodation'],
+        ['COM/BILL PAYMENT', 'Digital Services'],
+        ['APPLE STORE', 'Digital Services'],
+        ['RESTAURANT LOCAL', 'Restaurants & Dining'],
+        ['FOOD DELIVERY SVC', 'Restaurants & Dining'],
+        ['GROCERY MARKET', 'Groceries'],
+        ['SUPERMARKET CHAIN', 'Groceries'],
+        ['TRANSPORT SERVICE', 'Transportation'],
+        ['TAXI METER', 'Transportation'],
+        ['HOTEL CHAIN', 'Travel & Accommodation'],
+        ['AIRLINE TICKET', 'Travel & Accommodation'],
+        ['ENTERTAINMENT VENUE', 'Entertainment'],
+        ['CINEMA TICKET', 'Entertainment'],
+        ['STREAMING SERVICE', 'Entertainment'],
+        ['SHOPPING CENTER', 'Shopping'],
+        ['RETAIL OUTLET', 'Shopping'],
+        ['HEALTH CLINIC', 'Health & Beauty'],
+        ['MEDICAL CENTER', 'Health & Beauty'],
+        ['PHARMA DISTRIBUTOR', 'Health & Beauty'],
+        ['INSURANCE CO', 'Insurance & Financial'],
+      ])('sector containing "%s" → %s', (sector, expected) => {
+        const tx = createMockTransaction({
+          sector,
+          bookingText: 'Generic merchant',
+        })
+        expect(categorizeTransaction(tx)).toBe(expected)
+      })
+    })
+
+    describe('all categories — booking text keywords', () => {
+      it.each([
+        // Crypto & Investments (checked first)
+        ['COINBASE Purchase', 'Crypto & Investments'],
+        ['KRAKEN Exchange', 'Crypto & Investments'],
+        ['BINANCE Trading', 'Crypto & Investments'],
+        // Groceries — Swiss chains
+        ['MIGROS Zurich', 'Groceries'],
+        ['COOP City Basel', 'Groceries'],
+        ['ALDI Suisse', 'Groceries'],
+        ['LIDL Schweiz', 'Groceries'],
+        ['DENNER Aktion', 'Groceries'],
+        ['VOLG Dorfmarkt', 'Groceries'],
+        // Restaurants & Dining
+        ["McDonald's Airport", 'Restaurants & Dining'],
+        ['STARBUCKS Coffee', 'Restaurants & Dining'],
+        ['Pizzeria Napoli', 'Restaurants & Dining'],
+        ['Bäckerei Schmid', 'Restaurants & Dining'],
+        ['SV (Schweiz) AG Lunch', 'Restaurants & Dining'],
+        // Transportation — Swiss transit
+        ['SBB CFF FFS Ticket', 'Transportation'],
+        ['ZVV Zurich', 'Transportation'],
+        ['UBER Ride', 'Transportation'],
+        ['Parking Sihlcity', 'Transportation'],
+        ['BOLT Ride Basel', 'Transportation'],
+        // Travel & Accommodation
+        ['Hotel Schweizerhof', 'Travel & Accommodation'],
+        ['AIRBNB Booking', 'Travel & Accommodation'],
+        ['EASYJET Flight', 'Travel & Accommodation'],
+        ['RYANAIR Ticket', 'Travel & Accommodation'],
+        // Housing
+        ['Immobilien Verwaltung', 'Housing'],
+        ['Miete Wohnung', 'Housing'],
+        ['Hypothek Zahlung', 'Housing'],
+        // Insurance & Financial
+        ['SANITAS Grundversicherung', 'Insurance & Financial'],
+        ['SWICA Premium', 'Insurance & Financial'],
+        ['HELSANA Zusatz', 'Insurance & Financial'],
+        ['UBS Switzerland Card Center', 'Insurance & Financial'],
+        ['REVOLUT Transfer', 'Insurance & Financial'],
+        // Utilities & Telecom
+        ['SWISSCOM Abo', 'Utilities & Telecom'],
+        ['SUNRISE Mobile', 'Utilities & Telecom'],
+        ['SALT Prepaid', 'Utilities & Telecom'],
+        ['EWZ Strom', 'Utilities & Telecom'],
+        // Fitness & Sports
+        ['ACTIV FITNESS Monthly', 'Fitness & Sports'],
+        ['UPDATE FITNESS Abo', 'Fitness & Sports'],
+        ['Crossfit Box Zurich', 'Fitness & Sports'],
+        ['Yoga Studio Basel', 'Fitness & Sports'],
+        // Entertainment
+        ['NETFLIX.COM Monthly', 'Entertainment'],
+        ['SPOTIFY Premium', 'Entertainment'],
+        ['KINO Rex Zurich', 'Entertainment'],
+        ['DISNEY+ Streaming', 'Entertainment'],
+        ['STEAM Game Purchase', 'Entertainment'],
+        // Shopping
+        ['IKEA Spreitenbach', 'Shopping'],
+        ['DIGITEC Galaxus', 'Shopping'],
+        ['MANOR Warenhaus', 'Shopping'],
+        ['H&M Fashion', 'Shopping'],
+        ['Media Markt Electronics', 'Shopping'],
+        // Health & Beauty
+        ['Apotheke Bahnhof', 'Health & Beauty'],
+        ['Drogerie Mueller', 'Health & Beauty'],
+        ['Zahnarzt Dr. Smith', 'Health & Beauty'],
+        ['Optik Fielmann', 'Health & Beauty'],
+      ])('text "%s" → %s', (bookingText, expected) => {
+        const tx = createMockTransaction({
+          bookingText,
+          sector: 'Other',
+        })
+        expect(categorizeTransaction(tx)).toBe(expected)
+      })
+    })
+
+    describe('priority ordering', () => {
+      it('should prioritize manual override over everything', () => {
+        const tx = {
+          ...createMockTransaction({
+            sector: 'Restaurants',
+            bookingText: 'COINBASE Payment',
+          }),
+          manualCategory: 'Shopping',
+        }
+        expect(categorizeTransaction(tx)).toBe('Shopping')
+      })
+
+      it('should prioritize crypto check over sector match', () => {
+        const tx = createMockTransaction({
+          sector: 'Digital goods',
+          bookingText: 'COINBASE Purchase',
+        })
+        expect(categorizeTransaction(tx)).toBe('Crypto & Investments')
+      })
+
+      it('should prioritize exact sector over booking text', () => {
+        const tx = createMockTransaction({
+          sector: 'Restaurants',
+          bookingText: 'MIGROS Restaurant Zurich',
+        })
+        expect(categorizeTransaction(tx)).toBe('Restaurants & Dining')
+      })
+
+      it('should categorize Uber Eats as dining not transport', () => {
+        const tx = createMockTransaction({
+          bookingText: 'UBER EATS Delivery',
+          sector: 'Other',
+        })
+        expect(categorizeTransaction(tx)).toBe('Restaurants & Dining')
+      })
+    })
+  })
+
+  describe('categorizeTransaction with custom rules', () => {
+    it('should match custom keyword rules after built-in', () => {
+      const tx = createMockTransaction({
+        bookingText: 'VETCLINIC Pet Care',
+        sector: 'Other',
+      })
+      const customRules = [{ keywords: ['vetclinic', 'pet'], category: 'Pet Care' }]
+      expect(categorizeTransaction(tx, customRules)).toBe('Pet Care')
+    })
+
+    it('should prefer built-in over custom rules', () => {
+      const tx = createMockTransaction({
+        bookingText: 'MIGROS Zurich',
+        sector: 'Grocery stores',
+      })
+      const customRules = [{ keywords: ['migros'], category: 'Custom Groceries' }]
+      // Built-in exact sector match wins
+      expect(categorizeTransaction(tx, customRules)).toBe('Groceries')
+    })
+
+    it('should work without custom rules (backward compat)', () => {
+      const tx = createMockTransaction({
+        bookingText: 'Random',
+        sector: 'Restaurants',
+      })
+      expect(categorizeTransaction(tx)).toBe('Restaurants & Dining')
+    })
+  })
+
+  describe('analyzeExpenses with options', () => {
+    it('should apply resolveCategory to all transactions', () => {
+      const transactions = [
+        createMockTransaction({ sector: 'Restaurants', debit: 50 }),
+        createMockTransaction({ sector: 'Restaurants', debit: 30 }),
+      ]
+      const resolve = (raw: string) => (raw === 'Restaurants & Dining' ? 'Food & Dining' : raw)
+
+      const report = analyzeExpenses(transactions, undefined, {
+        resolveCategory: resolve,
+      })
+
+      expect(report.categorySummaries[0].category).toBe('Food & Dining')
+    })
+
+    it('should inject custom rules into categorization', () => {
+      const transactions = [
+        createMockTransaction({
+          bookingText: 'VETCLINIC Visit',
+          sector: 'Other',
+          debit: 100,
+        }),
+      ]
+
+      const report = analyzeExpenses(transactions, undefined, {
+        customRules: [{ keywords: ['vetclinic'], category: 'Pet Care' }],
+      })
+
+      expect(report.categorySummaries[0].category).toBe('Pet Care')
     })
   })
 

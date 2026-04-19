@@ -23,6 +23,5 @@ export const CATEGORIES = [
 
 export type Category = (typeof CATEGORIES)[number]
 
-export function getAllCategories(): readonly string[] {
-  return CATEGORIES
-}
+/** Alias for clarity when distinguishing from custom categories */
+export const BUILTIN_CATEGORIES = CATEGORIES

@@ -1,10 +1,16 @@
 import Dexie, { Table } from 'dexie'
+import { startOfDay, endOfDay } from 'date-fns'
 import type {
   Transaction,
   ExpenseReport,
   Budget,
   HouseholdMember,
   ManualRecurringTransaction,
+  CategoryConfigRecord,
+  Account,
+  PersistedAccount,
+  BalanceEntry,
+  NetWorthSnapshot,
 } from './types'
 import type { DashboardLayout } from './dashboard-types'
 
@@ -34,6 +40,10 @@ export class ExpenseDatabase extends Dexie {
   dashboardLayout!: Table<DashboardLayout>
   householdMembers!: Table<HouseholdMember>
   manualRecurring!: Table<ManualRecurringTransaction>
+  categoryConfig!: Table<CategoryConfigRecord>
+  accounts!: Table<Account>
+  balanceEntries!: Table<BalanceEntry>
+  netWorthSnapshots!: Table<NetWorthSnapshot>
 
   constructor() {
     super('ExpenseAnalyzerDB')
@@ -69,6 +79,27 @@ export class ExpenseDatabase extends Dexie {
       dashboardLayout: '++id',
       householdMembers: '++id, name',
       manualRecurring: '++id, fingerprint',
+    })
+    this.version(7).stores({
+      analyses: '++id, name, fileName, uploadDate',
+      budgets: '++id, category, createdDate',
+      chartPreferences: '++id',
+      dashboardLayout: '++id',
+      householdMembers: '++id, name',
+      manualRecurring: '++id, fingerprint',
+      categoryConfig: '++id, type',
+    })
+    this.version(8).stores({
+      analyses: '++id, name, fileName, uploadDate',
+      budgets: '++id, category, createdDate',
+      chartPreferences: '++id',
+      dashboardLayout: '++id',
+      householdMembers: '++id, name',
+      manualRecurring: '++id, fingerprint',
+      categoryConfig: '++id, type',
+      accounts: '++id, type, category',
+      balanceEntries: '++id, accountId, date',
+      netWorthSnapshots: '++id, date',
     })
   }
 }
@@ -170,38 +201,37 @@ export async function deleteBudgetByCategory(category: string): Promise<void> {
   await db.budgets.where('category').equals(category).delete()
 }
 
-// Chart Preferences functions (singleton - only one preferences record)
+// Generic singleton helpers for tables that store a single record
+async function saveSingleton<T>(table: Table<T>, data: Omit<T, 'id'>): Promise<void> {
+  await table.clear()
+  await table.add(data as T)
+}
+
+async function getSingleton<T>(table: Table<T>): Promise<T | undefined> {
+  const items = await table.toArray()
+  return items.length > 0 ? items[0] : undefined
+}
+
+// Chart Preferences functions
 export async function saveChartPreferences(prefs: Omit<ChartPreferences, 'id'>): Promise<void> {
-  const existing = await db.chartPreferences.toArray()
-  if (existing.length > 0) {
-    await db.chartPreferences.update(existing[0].id!, prefs)
-  } else {
-    await db.chartPreferences.add(prefs as ChartPreferences)
-  }
+  await saveSingleton(db.chartPreferences, prefs)
 }
 
 export async function getChartPreferences(): Promise<ChartPreferences | undefined> {
-  const prefs = await db.chartPreferences.toArray()
-  return prefs.length > 0 ? prefs[0] : undefined
+  return getSingleton(db.chartPreferences)
 }
 
 export async function clearChartPreferences(): Promise<void> {
   await db.chartPreferences.clear()
 }
 
-// Dashboard Layout functions (singleton - only one layout record)
+// Dashboard Layout functions
 export async function saveDashboardLayout(layout: Omit<DashboardLayout, 'id'>): Promise<void> {
-  const existing = await db.dashboardLayout.toArray()
-  if (existing.length > 0) {
-    await db.dashboardLayout.update(existing[0].id!, layout)
-  } else {
-    await db.dashboardLayout.add(layout as DashboardLayout)
-  }
+  await saveSingleton(db.dashboardLayout, layout)
 }
 
 export async function getDashboardLayout(): Promise<DashboardLayout | undefined> {
-  const layouts = await db.dashboardLayout.toArray()
-  return layouts.length > 0 ? layouts[0] : undefined
+  return getSingleton(db.dashboardLayout)
 }
 
 export async function clearDashboardLayout(): Promise<void> {
@@ -252,6 +282,108 @@ export async function deleteManualRecurringByFingerprint(fingerprint: string): P
   await db.manualRecurring.where('fingerprint').equals(fingerprint).delete()
 }
 
+// Category Config CRUD functions
+export async function saveCategoryConfig(
+  record: Omit<CategoryConfigRecord, 'id'>
+): Promise<number> {
+  return await db.categoryConfig.add(record as CategoryConfigRecord)
+}
+
+export async function getAllCategoryConfig(): Promise<CategoryConfigRecord[]> {
+  return await db.categoryConfig.toArray()
+}
+
+export async function updateCategoryConfig(
+  id: number,
+  updates: Partial<Omit<CategoryConfigRecord, 'id'>>
+): Promise<void> {
+  await db.categoryConfig.update(id, updates as Record<string, unknown>)
+}
+
+export async function deleteCategoryConfig(id: number): Promise<void> {
+  await db.categoryConfig.delete(id)
+}
+
+// Account CRUD functions
+export async function saveAccount(account: Omit<Account, 'id'>): Promise<number> {
+  return await db.accounts.add(account as Account)
+}
+
+export async function getAllAccounts(): Promise<PersistedAccount[]> {
+  return (await db.accounts.toArray()) as PersistedAccount[]
+}
+
+export async function getActiveAccounts(): Promise<PersistedAccount[]> {
+  const all = (await db.accounts.toArray()) as PersistedAccount[]
+  return all.filter((a) => !a.archived)
+}
+
+export async function updateAccount(
+  id: number,
+  updates: Partial<Omit<Account, 'id'>>
+): Promise<void> {
+  await db.accounts.update(id, updates as Record<string, unknown>)
+}
+
+export async function archiveAccount(id: number): Promise<void> {
+  await db.accounts.update(id, { archived: true })
+}
+
+// Balance Entry CRUD functions
+export async function saveBalanceEntry(entry: Omit<BalanceEntry, 'id'>): Promise<number> {
+  return await db.balanceEntries.add(entry as BalanceEntry)
+}
+
+export async function getBalanceEntriesForAccount(accountId: number): Promise<BalanceEntry[]> {
+  return await db.balanceEntries.where('accountId').equals(accountId).sortBy('date')
+}
+
+export async function getLatestBalances(): Promise<Map<number, BalanceEntry>> {
+  const all = await db.balanceEntries.toArray()
+  const latest = new Map<number, BalanceEntry>()
+  for (const entry of all) {
+    const existing = latest.get(entry.accountId)
+    if (!existing || entry.date > existing.date) {
+      latest.set(entry.accountId, entry)
+    }
+  }
+  return latest
+}
+
+export async function deleteBalanceEntry(id: number): Promise<void> {
+  await db.balanceEntries.delete(id)
+}
+
+// Net Worth Snapshot functions
+//
+// One snapshot per local calendar day, last-write-wins. We use an indexed
+// range query on the `date` column (bounded to the local day) so dedupe
+// cost stays O(log n) instead of scanning the whole table.
+export async function saveNetWorthSnapshot(
+  snapshot: Omit<NetWorthSnapshot, 'id'>
+): Promise<number> {
+  const dayStart = startOfDay(snapshot.date)
+  const dayEnd = endOfDay(snapshot.date)
+  return await db.transaction('rw', db.netWorthSnapshots, async () => {
+    const sameDay = await db.netWorthSnapshots
+      .where('date')
+      .between(dayStart, dayEnd, true, true)
+      .first()
+    if (sameDay) {
+      await db.netWorthSnapshots.delete(sameDay.id!)
+    }
+    return await db.netWorthSnapshots.add(snapshot as NetWorthSnapshot)
+  })
+}
+
+export async function getAllNetWorthSnapshots(): Promise<NetWorthSnapshot[]> {
+  return await db.netWorthSnapshots.orderBy('date').toArray()
+}
+
+export async function deleteNetWorthSnapshot(id: number): Promise<void> {
+  await db.netWorthSnapshots.delete(id)
+}
+
 // Backup/Restore types and functions
 export interface BackupData {
   version: number
@@ -262,26 +394,44 @@ export interface BackupData {
   dashboardLayout: DashboardLayout | null
   householdMembers?: HouseholdMember[]
   manualRecurring?: ManualRecurringTransaction[]
+  categoryConfig?: CategoryConfigRecord[]
+  accounts?: Account[]
+  balanceEntries?: BalanceEntry[]
+  netWorthSnapshots?: NetWorthSnapshot[]
 }
 
 /**
  * Export all data for backup
  */
 export async function exportAllData(): Promise<BackupData> {
-  const [analyses, budgets, chartPrefsArray, layoutArray, householdMembers, manualRecurring] =
-    await Promise.all([
-      db.analyses.toArray(),
-      db.budgets.toArray(),
-      db.chartPreferences.toArray(),
-      db.dashboardLayout.toArray(),
-      db.householdMembers.toArray(),
-      db.manualRecurring.toArray(),
-    ])
+  const [
+    analyses,
+    budgets,
+    chartPrefsArray,
+    layoutArray,
+    householdMembers,
+    manualRecurring,
+    categoryConfig,
+    accounts,
+    balanceEntries,
+    netWorthSnapshots,
+  ] = await Promise.all([
+    db.analyses.toArray(),
+    db.budgets.toArray(),
+    db.chartPreferences.toArray(),
+    db.dashboardLayout.toArray(),
+    db.householdMembers.toArray(),
+    db.manualRecurring.toArray(),
+    db.categoryConfig.toArray(),
+    db.accounts.toArray(),
+    db.balanceEntries.toArray(),
+    db.netWorthSnapshots.toArray(),
+  ])
   const chartPreferences = chartPrefsArray.length > 0 ? chartPrefsArray[0] : null
   const dashboardLayout = layoutArray.length > 0 ? layoutArray[0] : null
 
   return {
-    version: 4,
+    version: 6,
     exportDate: new Date().toISOString(),
     analyses,
     budgets,
@@ -289,6 +439,10 @@ export async function exportAllData(): Promise<BackupData> {
     dashboardLayout,
     householdMembers,
     manualRecurring,
+    categoryConfig,
+    accounts,
+    balanceEntries,
+    netWorthSnapshots,
   }
 }
 
@@ -331,72 +485,100 @@ export async function importAllData(backup: BackupData): Promise<{
   hasDashboardLayout: boolean
   householdMembersCount: number
   manualRecurringCount: number
+  categoryConfigCount: number
+  accountsCount: number
+  balanceEntriesCount: number
+  netWorthSnapshotsCount: number
 }> {
-  if (![1, 2, 3, 4].includes(backup.version)) {
+  if (![1, 2, 3, 4, 5, 6].includes(backup.version)) {
     throw new Error('Unsupported backup version')
   }
 
-  // Clear existing data
-  await Promise.all([
-    db.analyses.clear(),
-    db.budgets.clear(),
-    db.chartPreferences.clear(),
-    db.dashboardLayout.clear(),
-    db.householdMembers.clear(),
-    db.manualRecurring.clear(),
-  ])
-
-  // Import analyses (remove ids and convert date strings to Date objects)
-  const analysesToImport = backup.analyses.map((a) => {
-    const { id: _id, ...rest } = a
-    // Convert all date strings back to Date objects
-    const revived = reviveDates(rest)
-    return revived as SavedAnalysis
-  })
-  if (analysesToImport.length > 0) {
-    await db.analyses.bulkAdd(analysesToImport)
+  const stripId = <T extends { id?: number }>(item: T): Omit<T, 'id'> => {
+    const { id: _id, ...rest } = item
+    return rest
   }
 
-  // Import budgets (convert dates)
-  const budgetsToImport = backup.budgets.map((b) => {
-    const { id: _bid, ...rest } = b
-    const revived = reviveDates(rest)
-    return revived as Budget
-  })
-  if (budgetsToImport.length > 0) {
-    await db.budgets.bulkAdd(budgetsToImport)
-  }
+  const analysesToImport = backup.analyses.map((a) => reviveDates(stripId(a)) as SavedAnalysis)
+  const budgetsToImport = backup.budgets.map((b) => reviveDates(stripId(b)) as Budget)
+  const membersToImport = (backup.householdMembers || []).map((m) => stripId(m) as HouseholdMember)
+  const manualRecurringToImport = (backup.manualRecurring || []).map(
+    (r) => reviveDates(stripId(r)) as ManualRecurringTransaction
+  )
+  const categoryConfigToImport = (backup.categoryConfig || []).map(
+    (c) => stripId(c) as CategoryConfigRecord
+  )
+  const accountsToImport = (backup.accounts || []).map((a) => reviveDates(stripId(a)) as Account)
+  const balanceEntriesToImport = (backup.balanceEntries || []).map(
+    (e) => reviveDates(stripId(e)) as BalanceEntry
+  )
+  const snapshotsToImport = (backup.netWorthSnapshots || []).map(
+    (s) => reviveDates(stripId(s)) as NetWorthSnapshot
+  )
 
-  // Import chart preferences
-  if (backup.chartPreferences) {
-    const { id: _bid, ...rest } = backup.chartPreferences
-    await db.chartPreferences.add(rest as ChartPreferences)
-  }
+  // Single transaction: all tables clear + bulkAdd atomically. If any step
+  // throws (e.g. bulkAdd fails on a malformed row), Dexie rolls back every
+  // other write so the DB never ends up in a partially-restored state.
+  await db.transaction(
+    'rw',
+    [
+      db.analyses,
+      db.budgets,
+      db.chartPreferences,
+      db.dashboardLayout,
+      db.householdMembers,
+      db.manualRecurring,
+      db.categoryConfig,
+      db.accounts,
+      db.balanceEntries,
+      db.netWorthSnapshots,
+    ],
+    async () => {
+      await Promise.all([
+        db.analyses.clear(),
+        db.budgets.clear(),
+        db.chartPreferences.clear(),
+        db.dashboardLayout.clear(),
+        db.householdMembers.clear(),
+        db.manualRecurring.clear(),
+        db.categoryConfig.clear(),
+        db.accounts.clear(),
+        db.balanceEntries.clear(),
+        db.netWorthSnapshots.clear(),
+      ])
 
-  // Import dashboard layout (v2+)
-  if (backup.dashboardLayout) {
-    const { id: _lid, ...rest } = backup.dashboardLayout
-    await db.dashboardLayout.add(rest as DashboardLayout)
-  }
-
-  // Import household members (v3+)
-  const membersToImport = (backup.householdMembers || []).map((m) => {
-    const { id: _mid, ...rest } = m
-    return rest as HouseholdMember
-  })
-  if (membersToImport.length > 0) {
-    await db.householdMembers.bulkAdd(membersToImport)
-  }
-
-  // Import manual recurring (v4+)
-  const manualRecurringToImport = (backup.manualRecurring || []).map((r) => {
-    const { id: _rid, ...rest } = r
-    const revived = reviveDates(rest)
-    return revived as ManualRecurringTransaction
-  })
-  if (manualRecurringToImport.length > 0) {
-    await db.manualRecurring.bulkAdd(manualRecurringToImport)
-  }
+      if (analysesToImport.length > 0) {
+        await db.analyses.bulkAdd(analysesToImport)
+      }
+      if (budgetsToImport.length > 0) {
+        await db.budgets.bulkAdd(budgetsToImport)
+      }
+      if (backup.chartPreferences) {
+        await db.chartPreferences.add(stripId(backup.chartPreferences) as ChartPreferences)
+      }
+      if (backup.dashboardLayout) {
+        await db.dashboardLayout.add(stripId(backup.dashboardLayout) as DashboardLayout)
+      }
+      if (membersToImport.length > 0) {
+        await db.householdMembers.bulkAdd(membersToImport)
+      }
+      if (manualRecurringToImport.length > 0) {
+        await db.manualRecurring.bulkAdd(manualRecurringToImport)
+      }
+      if (categoryConfigToImport.length > 0) {
+        await db.categoryConfig.bulkAdd(categoryConfigToImport)
+      }
+      if (accountsToImport.length > 0) {
+        await db.accounts.bulkAdd(accountsToImport)
+      }
+      if (balanceEntriesToImport.length > 0) {
+        await db.balanceEntries.bulkAdd(balanceEntriesToImport)
+      }
+      if (snapshotsToImport.length > 0) {
+        await db.netWorthSnapshots.bulkAdd(snapshotsToImport)
+      }
+    }
+  )
 
   return {
     analysesCount: analysesToImport.length,
@@ -405,6 +587,10 @@ export async function importAllData(backup: BackupData): Promise<{
     hasDashboardLayout: !!backup.dashboardLayout,
     householdMembersCount: membersToImport.length,
     manualRecurringCount: manualRecurringToImport.length,
+    categoryConfigCount: categoryConfigToImport.length,
+    accountsCount: accountsToImport.length,
+    balanceEntriesCount: balanceEntriesToImport.length,
+    netWorthSnapshotsCount: snapshotsToImport.length,
   }
 }
 
@@ -416,7 +602,7 @@ export function isValidBackupData(data: unknown): data is BackupData {
   const obj = data as Record<string, unknown>
   return (
     typeof obj.version === 'number' &&
-    [1, 2, 3, 4].includes(obj.version) &&
+    [1, 2, 3, 4, 5, 6].includes(obj.version) &&
     typeof obj.exportDate === 'string' &&
     Array.isArray(obj.analyses) &&
     Array.isArray(obj.budgets)

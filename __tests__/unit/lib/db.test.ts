@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import {
   db,
   saveAnalysis,
@@ -26,9 +26,12 @@ import {
   exportAllData,
   importAllData,
   isValidBackupData,
+  saveNetWorthSnapshot,
+  getAllNetWorthSnapshots,
   type BackupData,
 } from '@/lib/db'
 import { createMockTransaction, createMockReport } from '../../fixtures/transactions'
+import type { NetWorthSnapshot } from '@/lib/types'
 
 describe('db', () => {
   beforeEach(async () => {
@@ -356,7 +359,7 @@ describe('db', () => {
 
       const backup = await exportAllData()
 
-      expect(backup.version).toBe(4)
+      expect(backup.version).toBe(6)
       expect(backup.exportDate).toBeDefined()
       expect(backup.analyses).toHaveLength(1)
       expect(backup.budgets).toHaveLength(1)
@@ -670,6 +673,112 @@ describe('db', () => {
           budgets: [],
         })
       ).toBe(false)
+    })
+  })
+
+  describe('Net Worth Snapshot dedupe', () => {
+    beforeEach(async () => {
+      await db.netWorthSnapshots.clear()
+    })
+
+    afterEach(async () => {
+      await db.netWorthSnapshots.clear()
+    })
+
+    function snapshot(date: Date, netWorth: number): Omit<NetWorthSnapshot, 'id'> {
+      return {
+        date,
+        totalAssets: netWorth,
+        totalLiabilities: 0,
+        netWorth,
+        accountBalances: [],
+      }
+    }
+
+    it('keeps only one snapshot per local day; last write wins', async () => {
+      // Two writes on the same local day — last one overwrites.
+      await saveNetWorthSnapshot(snapshot(new Date('2026-04-19T08:00:00'), 1000))
+      await saveNetWorthSnapshot(snapshot(new Date('2026-04-19T18:00:00'), 1500))
+      const all = await getAllNetWorthSnapshots()
+      expect(all).toHaveLength(1)
+      expect(all[0].netWorth).toBe(1500)
+    })
+
+    it('keeps snapshots from different days independently', async () => {
+      await saveNetWorthSnapshot(snapshot(new Date('2026-04-18T12:00:00'), 1000))
+      await saveNetWorthSnapshot(snapshot(new Date('2026-04-19T12:00:00'), 1200))
+      const all = await getAllNetWorthSnapshots()
+      expect(all).toHaveLength(2)
+    })
+
+    it('uses local calendar day, not UTC day', async () => {
+      // 23:30 local time on April 19 could be April 20 UTC; dedupe must use
+      // the *local* calendar day so a user entering data late at night
+      // stays in "today" until they cross local midnight.
+      const late = new Date(2026, 3, 19, 23, 30, 0) // 23:30 local Apr 19
+      const earlier = new Date(2026, 3, 19, 9, 0, 0) // 09:00 local Apr 19
+      await saveNetWorthSnapshot(snapshot(earlier, 500))
+      await saveNetWorthSnapshot(snapshot(late, 700))
+      const all = await getAllNetWorthSnapshots()
+      expect(all).toHaveLength(1)
+      expect(all[0].netWorth).toBe(700)
+    })
+  })
+
+  describe('importAllData atomicity', () => {
+    afterEach(() => {
+      vi.restoreAllMocks()
+    })
+
+    it('rolls back all tables when a bulkAdd in the middle throws', async () => {
+      // Pre-seed so we can prove the clear was also rolled back.
+      await saveBudget('Food', 500)
+      expect(await getAllBudgets()).toHaveLength(1)
+
+      // Force a failure during the middle of the import. Snapshot bulkAdd
+      // is the last step — fail it to prove everything earlier rolls back.
+      const spy = vi
+        .spyOn(db.netWorthSnapshots, 'bulkAdd')
+        .mockRejectedValueOnce(new Error('injected failure'))
+
+      const backup: BackupData = {
+        version: 6,
+        exportDate: '2026-04-19T00:00:00.000Z',
+        analyses: [],
+        budgets: [
+          {
+            category: 'Imported',
+            amount: 999,
+            createdDate: new Date('2026-01-01'),
+          },
+        ],
+        chartPreferences: null,
+        dashboardLayout: null,
+        householdMembers: [],
+        manualRecurring: [],
+        categoryConfig: [],
+        accounts: [],
+        balanceEntries: [],
+        netWorthSnapshots: [
+          {
+            date: new Date('2026-02-01'),
+            totalAssets: 100,
+            totalLiabilities: 0,
+            netWorth: 100,
+            accountBalances: [],
+          },
+        ],
+      }
+
+      await expect(importAllData(backup)).rejects.toThrow()
+
+      // After rollback: the original Food budget is still there, the
+      // "Imported" budget from the failed backup was NOT persisted.
+      const budgets = await getAllBudgets()
+      expect(budgets).toHaveLength(1)
+      expect(budgets[0].category).toBe('Food')
+
+      spy.mockRestore()
     })
   })
 })

@@ -128,7 +128,7 @@ export function forecastByCategory(
     if ((tx.debit || 0) <= 0) continue
 
     const monthKey = format(tx.purchaseDate, 'yyyy-MM')
-    const category = categorizeTransaction(tx)
+    const category = tx.category || categorizeTransaction(tx)
 
     if (!monthCategoryMap.has(monthKey)) {
       monthCategoryMap.set(monthKey, new Map())

@@ -338,7 +338,9 @@ export function TransactionHistoryBuilder({
                   </p>
                   <p className="mb-4 text-sm text-muted-foreground">or</p>
                   <label className="inline-block cursor-pointer">
-                    <Button className="bg-emerald-600 hover:bg-emerald-700">Browse Files</Button>
+                    <span className="inline-flex h-10 items-center justify-center rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700">
+                      Browse Files
+                    </span>
                     <input
                       type="file"
                       accept=".csv"

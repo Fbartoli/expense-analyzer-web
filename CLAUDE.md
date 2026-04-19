@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Privacy-first expense analyzer that runs entirely in the browser. Parses UBS bank statement and credit card CSV files (Swiss formats), categorizes transactions into 19 categories, and provides budgeting, forecasting, and recurring transaction detection. All data stays local in IndexedDB — no servers, no tracking.
+Privacy-first expense analyzer that runs entirely in the browser for a single local user. Parses UBS bank statement and credit card CSV files (Swiss formats), categorizes transactions into built-in and custom categories, and provides budgeting, forecasting, and recurring transaction detection. All data stays local in IndexedDB — no servers, no tracking, no authentication. The same person uses it across sessions on the same machine.
 
 ## Commands
 
@@ -30,29 +30,41 @@ npx vitest run -t "parseCSV"
 
 ## Architecture
 
-**Single-page client-side app** built with Next.js App Router. The entire app is one `'use client'` page (`app/page.tsx`) with all state managed via `useState`/`useCallback` in the root `Home` component. No server components are used for data fetching.
+**Single-page client-side app** built with Next.js App Router. One `'use client'` page (`app/page.tsx`) orchestrates 3 custom hooks and renders dashboard widgets. No server components used.
+
+### Custom Hooks
+
+- **`lib/use-expense-analysis.ts`** — Core analysis state: transactions, report, category overrides, period filtering, save/load handlers
+- **`lib/use-dashboard-layout.ts`** — Widget layout, DnD, customization, layout persistence
+- **`lib/use-persisted-data.ts`** — IndexedDB data: budgets, members, recurring, budget status
+- **`lib/use-category-config.ts`** — Custom categories, aliases (rename/merge), CRUD
 
 ### Data Flow
 
 1. CSV upload → `lib/parser.ts` (auto-detects credit card vs bank statement format, Swiss date/number formats, delimiter)
-2. Parsing → `lib/analyzer.ts` (categorizes transactions via sector + keyword matching into 19 categories, produces `ExpenseReport`)
-3. Report rendered across dashboard widget components
-4. Persisted to IndexedDB via Dexie.js (`lib/db.ts`, 4 tables: analyses, budgets, chartPreferences, dashboardLayout)
-5. Encrypted backup/restore via AES-256-GCM (`lib/crypto.ts`)
+2. Parsing → `lib/analyzer.ts` (categorizes via data-driven rules in `lib/categorization-rules.ts`, produces `ExpenseReport`)
+3. Category config applied: custom keyword rules, then alias resolution (`lib/category-config.ts`)
+4. Report rendered across dashboard widget components
+5. Persisted to IndexedDB via Dexie.js (`lib/db.ts`, 7 tables)
+6. Encrypted backup/restore via AES-256-GCM (`lib/crypto.ts`)
 
 ### Key Modules
 
 - **`lib/parser.ts`** — Two CSV formats: UBS credit card (`;`-delimited, `DD.MM.YYYY` dates, Swiss number format `1'234.56`) and UBS bank statement (ISO dates, metadata header rows, negative debits)
-- **`lib/analyzer.ts`** — Transaction categorization (19 categories), expense analysis, budget status calculation (`healthy`/`early`/`warning`/`over`)
+- **`lib/analyzer.ts`** — Transaction categorization, expense analysis, budget status calculation (`healthy`/`early`/`warning`/`over`)
+- **`lib/categorization-rules.ts`** — Data-driven categorization: sector map, keyword rules, partial matches
+- **`lib/category-config.ts`** — Custom category config builder: alias resolution, custom keyword rules, color registry
+- **`lib/category-colors.ts`** — Consolidated color map for all categories (built-in + custom)
 - **`lib/forecast.ts`** — Weighted moving average spending forecast with trend calculation and per-category breakdown
 - **`lib/recurring.ts`** — Recurring transaction detection (weekly/monthly/quarterly) with merchant normalization and price change tracking
-- **`lib/db.ts`** — All IndexedDB CRUD via Dexie.js, backup/restore (format version 2)
-- **`lib/types.ts`** — Core interfaces: `Transaction`, `ExpenseReport`, `CategorySummary`, `MonthlyAnalysis`, `Budget`, `BudgetWithSpending`
+- **`lib/db.ts`** — All IndexedDB CRUD via Dexie.js (7 tables), backup/restore (format version 5)
+- **`lib/types.ts`** — Core interfaces: `Transaction`, `ExpenseReport`, `CategorySummary`, `Budget`, `CustomCategory`, `CategoryAlias`
 
 ### Components
 
 - `components/ui/` — shadcn/ui primitives (new-york style, Radix-based)
 - `components/*.tsx` — Business components, all `'use client'`, function components with typed props
+- `components/CategoryManager.tsx` — Custom category management (create, rename, merge)
 - Dashboard widgets are configurable (visibility, order, size) via `DashboardCustomizer` with `@dnd-kit` drag-and-drop, layout persisted to IndexedDB
 
 ## Code Conventions
@@ -67,12 +79,13 @@ npx vitest run -t "parseCSV"
 
 ## Testing
 
-Vitest with jsdom environment. Tests are unit tests for `lib/` modules only (no component tests). Test timeout: 10s. Coverage target: 80%.
+Vitest with jsdom environment. Unit tests for `lib/` modules + component tests for FileUpload and SavedAnalyses. Test timeout: 10s. Coverage target: 80%.
 
 - **Setup (`vitest.setup.ts`):** `@testing-library/jest-dom` matchers, `fake-indexeddb/auto` for IndexedDB, stubs for `ResizeObserver`/`matchMedia`/`URL.createObjectURL`
 - **Fixtures:** `__tests__/fixtures/transactions.ts` has factory functions (`createMockTransaction`, `createMockBudget`, `createMockReport`) with partial override pattern
 - **CSV fixtures:** `__tests__/fixtures/csv-samples.ts` has sample strings for both formats
 - **File mocks:** `test-utils/mock-file.ts` has `createMockFile`, `createMockCSVFile`, `createMockJSONFile`
+- **Note:** TransactionsTable component tests hang in jsdom due to Radix Dialog + rAF interaction. Use browser QA tests for that component.
 
 ## Git Hooks
 

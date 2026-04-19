@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { Plus, Trash2, PiggyBank, ChevronDown } from 'lucide-react'
 import { getAllBudgets, saveBudget, deleteBudget } from '@/lib/db'
-import { getAllCategories } from '@/lib/categories'
+import { CATEGORIES } from '@/lib/categories'
 import type { Budget } from '@/lib/types'
 import {
   Dialog,
@@ -24,9 +24,15 @@ interface BudgetManagerProps {
   isOpen: boolean
   onClose: () => void
   onBudgetsChange: () => void
+  allCategories?: readonly string[]
 }
 
-export function BudgetManager({ isOpen, onClose, onBudgetsChange }: BudgetManagerProps) {
+export function BudgetManager({
+  isOpen,
+  onClose,
+  onBudgetsChange,
+  allCategories,
+}: BudgetManagerProps) {
   const [budgets, setBudgets] = useState<Budget[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedCategory, setSelectedCategory] = useState<string>('')
@@ -34,7 +40,7 @@ export function BudgetManager({ isOpen, onClose, onBudgetsChange }: BudgetManage
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const categories = getAllCategories().filter((c) => c !== 'Income' && c !== 'Other')
+  const categories = (allCategories ?? CATEGORIES).filter((c) => c !== 'Income' && c !== 'Other')
 
   useEffect(() => {
     if (isOpen) {

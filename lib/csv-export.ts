@@ -1,6 +1,6 @@
 import Papa from 'papaparse'
 import { format } from 'date-fns'
-import { categorizeTransaction, type TransactionWithCategory } from './analyzer'
+import { categorizeTransaction } from './analyzer'
 import type { Transaction } from './types'
 
 interface CsvRow {
@@ -34,32 +34,7 @@ export function exportTransactionsCsv(
   transactions: Transaction[],
   categoryOverrides?: Map<number, string>
 ): void {
-  const rows: CsvRow[] = transactions.map((t, idx) => {
-    let category: string
-    if (categoryOverrides?.has(idx)) {
-      category = categoryOverrides.get(idx)!
-    } else {
-      category = categorizeTransaction(t)
-    }
-
-    return {
-      Date: formatDate(t.purchaseDate),
-      'Booked Date': formatDate(t.bookedDate),
-      Description: t.bookingText,
-      'Account Holder': t.accountHolder,
-      Sector: t.sector,
-      Category: category,
-      Amount: formatAmount(t.amount),
-      Debit: formatAmount(t.debit),
-      Credit: formatAmount(t.credit),
-      Currency: t.currency,
-      'Original Currency': t.originalCurrency,
-      'Exchange Rate': t.rate !== null ? String(t.rate) : '',
-      'Account Number': t.accountNumber,
-      'Card Number': t.cardNumber,
-    }
-  })
-
+  const rows = buildCsvRows(transactions, categoryOverrides)
   const csv = Papa.unparse(rows)
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
   const url = URL.createObjectURL(blob)
@@ -76,32 +51,7 @@ export function transactionsToCsvString(
   transactions: Transaction[],
   categoryOverrides?: Map<number, string>
 ): string {
-  const rows: CsvRow[] = transactions.map((t, idx) => {
-    let category: string
-    if (categoryOverrides?.has(idx)) {
-      category = categoryOverrides.get(idx)!
-    } else {
-      category = categorizeTransaction(t as TransactionWithCategory)
-    }
-
-    return {
-      Date: formatDate(t.purchaseDate),
-      'Booked Date': formatDate(t.bookedDate),
-      Description: t.bookingText,
-      'Account Holder': t.accountHolder,
-      Sector: t.sector,
-      Category: category,
-      Amount: formatAmount(t.amount),
-      Debit: formatAmount(t.debit),
-      Credit: formatAmount(t.credit),
-      Currency: t.currency,
-      'Original Currency': t.originalCurrency,
-      'Exchange Rate': t.rate !== null ? String(t.rate) : '',
-      'Account Number': t.accountNumber,
-      'Card Number': t.cardNumber,
-    }
-  })
-
+  const rows = buildCsvRows(transactions, categoryOverrides)
   const fields = [
     'Date',
     'Booked Date',
@@ -120,4 +70,30 @@ export function transactionsToCsvString(
   ]
 
   return Papa.unparse({ fields, data: rows })
+}
+
+function buildCsvRows(
+  transactions: Transaction[],
+  categoryOverrides?: Map<number, string>
+): CsvRow[] {
+  return transactions.map((t, idx) => {
+    const category = categoryOverrides?.get(idx) ?? t.category ?? categorizeTransaction(t)
+
+    return {
+      Date: formatDate(t.purchaseDate),
+      'Booked Date': formatDate(t.bookedDate),
+      Description: t.bookingText,
+      'Account Holder': t.accountHolder,
+      Sector: t.sector,
+      Category: category,
+      Amount: formatAmount(t.amount),
+      Debit: formatAmount(t.debit),
+      Credit: formatAmount(t.credit),
+      Currency: t.currency,
+      'Original Currency': t.originalCurrency,
+      'Exchange Rate': t.rate !== null ? String(t.rate) : '',
+      'Account Number': t.accountNumber,
+      'Card Number': t.cardNumber,
+    }
+  })
 }
